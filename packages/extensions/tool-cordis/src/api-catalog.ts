@@ -526,6 +526,42 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'deliverables',
+    summary: 'Minimal deliverable version service; the M2 deliverable-local provider replaces the linear scans and the non-Remote host seams behind the same Remote surface.',
+    description: 'Minimal deliverable version service; the M2 deliverable-local provider replaces the linear scans and the non-Remote host seams behind the same Remote surface.',
+    methods: [
+      {
+        signature: '@Remote(\'saveVersion\') saveVersion( deliverableId: string, expectedBaseVersion: string | null, sourceSubmissionId: string | null, ): Promise<DeliverableVersion>',
+        description: 'Create one immutable version of a deliverable. The caller names the base version it built on; a base that is no longer the latest, or whose state is not `current`, rejects with `stale-write`.',
+        parameters: [{ name: 'deliverableId', description: 'raw deliverable identifier.' }, { name: 'expectedBaseVersion', description: 'the latest version the caller built on; `null` on a root version.' }, { name: 'sourceSubmissionId', description: 'raw submission identifier that produced the version, when known.' }],
+        returns: 'the stored immutable version.',
+      },
+      {
+        signature: '@Remote(\'listCurrentInputs\') listCurrentInputs(phaseRunId: string): DeliverableVersion[]',
+        description: 'List the current input versions of one phase run: every registered input whose state is `current`, in registration order. Stale, invalid, superseded, and cancelled branch products are excluded.',
+        parameters: [{ name: 'phaseRunId', description: 'raw phase-run identifier.' }],
+        returns: 'the current input versions.',
+      },
+      {
+        signature: '@Remote(\'invalidateDownstream\') invalidateDownstream(rootVersionIds: string[]): Promise<InvalidateDownstreamResult>',
+        description: 'Mark every version of each root\'s chain newer than the root stale. The full transitive impact closure and ImpactSnapshot are M2.',
+        parameters: [{ name: 'rootVersionIds', description: 'raw version ids whose chains lose currency.' }],
+        returns: 'the ids newly transitioned to stale.',
+      },
+      {
+        signature: 'async recordPhaseInputs(phaseRunId: string, versionIds: string[]): Promise<void>',
+        description: 'Register (or replace) the input versions of one phase run. Host-side seam: the task write chain records a submission\'s input refs here at acceptance.',
+        parameters: [{ name: 'phaseRunId', description: 'raw phase-run identifier.' }, { name: 'versionIds', description: 'raw input version ids in stable order.' }],
+      },
+      {
+        signature: 'getVersion(versionId: string): DeliverableVersion | undefined',
+        description: 'Read one version by identity; `undefined` when absent. Host-side seam for the task write chain\'s output-exists and source-matches checks.',
+        parameters: [{ name: 'versionId', description: 'raw version id.' }],
+        returns: 'the stored version, or `undefined`.',
+      },
+    ],
+  },
+  {
     key: 'directoryPicker',
     summary: 'Abstract directory-picking service.',
     description: 'Abstract directory-picking service. Subclass, implement `capability()`, and load the subclass as a plugin — it registers as `ctx.directoryPicker` (one implementation per context; loading a second throws, cordis\' standard duplicate-service behavior). The capability object must be stable for the service lifetime: consumers may capture it across calls.',
@@ -960,6 +996,60 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Select whether plan mode should be active. Between turns the method appends the change immediately because no in-turn pre-step will run until another prompt starts a turn. The open-turn fold is the idle signal: agent status stays `running` through post-turn checkpointing, when no further in-turn pre-step runs. During an open turn the selection remains pending until the next accepted in-turn pre-step. Repeated selection of the current or already-pending state is a no-op.',
         parameters: [{ name: 'agent', description: 'The agent to switch.' }, { name: 'active', description: 'Whether plan mode should be active.' }],
         returns: 'what happened: `committed` (logged now), `queued` (awaiting the next accepted in-turn pre-step), `cancelled` (an opposite pending selection was cleared; the logged state already matches), or `noop` (already in that state).',
+      },
+    ],
+  },
+  {
+    key: 'recipeEngine',
+    summary: 'Schedules one task through its pinned recipe: opens the run and phase runs, executes each phase via the contributed executor, records the submission, runs the deterministic gate, and advances or settles the task.',
+    description: 'Schedules one task through its pinned recipe: opens the run and phase runs, executes each phase via the contributed executor, records the submission, runs the deterministic gate, and advances or settles the task. Pause and cancel are barriers observed between atomic actions; restart recovery rebuilds from the durable bindings and journal.',
+    methods: [
+      {
+        signature: 'registerExecutor(executor: PhaseExecutor): () => void',
+        description: 'Register the single phase executor. Disposal proves removal (HMR-safe).',
+        parameters: [{ name: 'executor', description: 'the executor that performs every scheduled phase.' }],
+        returns: 'the disposer clearing this registration.',
+      },
+      {
+        signature: 'async trigger(taskId: TaskId): Promise<void>',
+        description: 'Wake the scheduler for one task. Wakes queue per task, so concurrent events never interleave scheduling steps for the same task.',
+        parameters: [{ name: 'taskId', description: 'the task to schedule.' }],
+      },
+      {
+        signature: 'async recover(): Promise<void>',
+        description: 'Reconcile recovery: validate each non-terminal task\'s journal head against its projection revision, then wake every non-terminal task. Scheduling itself resumes submitted-but-ungated phases and re-executes phase runs whose executor died mid-flight.',
+        parameters: [],
+      },
+    ],
+  },
+  {
+    key: 'recipes',
+    summary: 'Immutable recipe revision registry.',
+    description: 'Immutable recipe revision registry.',
+    methods: [
+      {
+        signature: '@Remote(\'register\') register(recipeId: string, revision: number, payload: RecipePayload): RecipeRevision',
+        description: 'Register one immutable revision; the same payload under the same identity is idempotent, a different payload under a taken identity fails.',
+        parameters: [{ name: 'recipeId', description: 'raw recipe identifier.' }, { name: 'revision', description: 'positive revision number.' }, { name: 'payload', description: 'canonical revision payload.' }],
+        returns: 'the stored revision.',
+      },
+      {
+        signature: '@Remote(\'getPinned\') getPinned(identity: RecipeIdentity): RecipeRevision',
+        description: 'Read one pinned identity, verifying the stored hash against the payload.',
+        parameters: [{ name: 'identity', description: 'recipe id plus exact revision.' }],
+        returns: 'the stored revision.',
+      },
+      {
+        signature: '@Remote(\'latest\') latest(recipeId: string): RecipeRevision | undefined',
+        description: 'Highest registered revision of one recipe; new-task creation only.',
+        parameters: [{ name: 'recipeId', description: 'raw recipe identifier.' }],
+        returns: 'the latest revision, or `undefined` when the recipe is unknown.',
+      },
+      {
+        signature: '@Remote(\'list\') list(): RecipeIdentity[]',
+        description: 'Every registered identity, for registry inspection.',
+        parameters: [],
+        returns: 'identity list ordered by registration.',
       },
     ],
   },
@@ -1737,6 +1827,157 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'tasks',
+    summary: 'Task service: durable task/run/phase projections and guarded commands.',
+    description: 'Task service: durable task/run/phase projections and guarded commands.',
+    methods: [
+      {
+        signature: '@Remote(\'createTask\') async createTask(recipeId: string, workspaceId: string, actor: string, idempotencyKey: string): Promise<TaskRecord>',
+        description: 'Create a task pinned to the latest registered revision of one recipe.',
+        parameters: [{ name: 'recipeId', description: 'raw recipe identifier.' }, { name: 'workspaceId', description: 'raw workspace identifier.' }, { name: 'actor', description: 'creating actor, recorded with the creation.' }, { name: 'idempotencyKey', description: 'deduplication key; a replay with the same key returns the original task.' }],
+        returns: 'the new task in `planning`.',
+      },
+      {
+        signature: '@Remote(\'startTask\') async startTask(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Move one task from `planning` into `running`.',
+        parameters: [{ name: 'taskId', description: 'the task to start.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the post-commit task projection.',
+      },
+      {
+        signature: '@Remote(\'requestPause\') async requestPause(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Request a pause; the task settles once in-flight phase work quiesces.',
+        parameters: [{ name: 'taskId', description: 'the task to pause.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the task in `pausing`.',
+      },
+      {
+        signature: '@Remote(\'settlePause\') async settlePause(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Settle a completed pause into `paused`.',
+        parameters: [{ name: 'taskId', description: 'the task in `pausing`.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the task in `paused`.',
+      },
+      {
+        signature: '@Remote(\'resume\') async resume(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Resume one paused task back into `running`.',
+        parameters: [{ name: 'taskId', description: 'the task in `paused`.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the task in `running`.',
+      },
+      {
+        signature: '@Remote(\'requestCancel\') async requestCancel(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Request a cancel; the task settles once in-flight phase work quiesces.',
+        parameters: [{ name: 'taskId', description: 'the task to cancel.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the task in `cancelling`.',
+      },
+      {
+        signature: '@Remote(\'settleCancel\') async settleCancel(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Settle a completed cancel into `cancelled`.',
+        parameters: [{ name: 'taskId', description: 'the task in `cancelling`.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the task in `cancelled`.',
+      },
+      {
+        signature: '@Remote(\'failTask\') async failTask(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Fail one running task.',
+        parameters: [{ name: 'taskId', description: 'the task to fail.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the task in `failed`.',
+      },
+      {
+        signature: '@Remote(\'completeTask\') async completeTask(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Complete a task; the completion guard requires every phase run of the current run to have passed.',
+        parameters: [{ name: 'taskId', description: 'the task to complete.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
+        returns: 'the post-commit task projection.',
+      },
+      {
+        signature: '@Remote(\'createTaskRun\') async createTaskRun(taskId: string, mutation: TaskMutationContext): Promise<TaskRunRecord>',
+        description: 'Open a new run on one task and make it the current run.',
+        parameters: [{ name: 'taskId', description: 'the owning task.' }, { name: 'mutation', description: 'the task\'s expected revision plus actor metadata.' }],
+        returns: 'the new run.',
+      },
+      {
+        signature: '@Remote(\'createPhaseRun\') async createPhaseRun(runId: string, phaseId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Create one phase run inside a run.',
+        parameters: [{ name: 'runId', description: 'the owning run.' }, { name: 'phaseId', description: 'the recipe phase id this run executes.' }, { name: 'mutation', description: 'the run\'s expected revision plus actor metadata.' }],
+        returns: 'the new phase run in `created`.',
+      },
+      {
+        signature: '@Remote(\'startPhaseRun\') async startPhaseRun(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Move one phase run into `running`.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run to start.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'recordSubmission\') async recordSubmission(submission: PhaseSubmission, environment: SubmissionEnvironmentFacts): Promise<PhaseSubmission>',
+        description: 'Accept and store one phase submission after protocol validation; the accepted submission moves its phase run to `submitted`.',
+        parameters: [{ name: 'submission', description: 'the immutable submission record.' }, { name: 'environment', description: 'session-watermark and deliverable-currency facts the caller (the engine) computed.' }],
+        returns: 'the stored submission; an idempotent replay returns the original.',
+      },
+      {
+        signature: '@Remote(\'startGate\') async startGate(submissionId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Start the gate for one accepted submission.',
+        parameters: [{ name: 'submissionId', description: 'the accepted submission.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'recordGateCheck\') async recordGateCheck(result: GateCheckResult): Promise<GateCheckResult>',
+        description: 'Record one gate-check verdict for a submission.',
+        parameters: [{ name: 'result', description: 'the check verdict.' }],
+        returns: 'the stored verdict.',
+      },
+      {
+        signature: '@Remote(\'markPhasePassed\') async markPhasePassed(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Mark one phase run passed.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'markPhaseFailed\') async markPhaseFailed(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Mark one gate-running phase run failed.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'cancelPhaseRun\') async cancelPhaseRun(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Cancel one not-yet-passed phase run.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run to cancel.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'getTask\') async getTask(taskId: string): Promise<TaskRecord | undefined>',
+        description: 'Read one task projection.',
+        parameters: [{ name: 'taskId', description: 'the task to read.' }],
+        returns: 'the current projection.',
+      },
+      {
+        signature: '@Remote(\'listTasks\') async listTasks(): Promise<TaskRecord[]>',
+        description: 'Every task projection, for the task board.',
+        parameters: [],
+        returns: 'tasks in insertion order.',
+      },
+      {
+        signature: '@Remote(\'getPhaseRun\') async getPhaseRun(phaseRunId: string): Promise<PhaseRunRecord | undefined>',
+        description: 'Read one phase-run projection.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run to read.' }],
+        returns: 'the current projection.',
+      },
+      {
+        signature: '@Remote(\'listPhaseRuns\') async listPhaseRuns(runId: string): Promise<PhaseRunRecord[]>',
+        description: 'Every phase-run projection of one run, for the engine and the task board.',
+        parameters: [{ name: 'runId', description: 'the run whose phase runs to list.' }],
+        returns: 'phase runs in insertion order.',
+      },
+      {
+        signature: '@Remote(\'getSubmission\') async getSubmission(submissionId: string): Promise<PhaseSubmission | undefined>',
+        description: 'Read one submission.',
+        parameters: [{ name: 'submissionId', description: 'the submission to read.' }],
+        returns: 'the stored submission.',
+      },
+      {
+        signature: '@Remote(\'listGateResults\') async listGateResults(submissionId: string): Promise<GateCheckResult[]>',
+        description: 'Every gate-check verdict recorded for one submission.',
+        parameters: [{ name: 'submissionId', description: 'the submission.' }],
+        returns: 'verdicts in recording order.',
+      },
+    ],
+  },
+  {
     key: 'terminals',
     summary: 'In-process registry for replaceable PTY backends and exact-Agent sessions.',
     description: 'In-process registry for replaceable PTY backends and exact-Agent sessions.',
@@ -2092,6 +2333,62 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'workbenchHost',
+    summary: 'Workbench attention inbox (`ctx.workbenchHost`).',
+    description: 'Workbench attention inbox (`ctx.workbenchHost`).',
+    methods: [
+      {
+        signature: '@Remote(\'listSnapshot\') listSnapshot(): WorkbenchSnapshot',
+        description: 'Read the whole inbox with per-item compare-and-set revisions.',
+        parameters: [],
+        returns: 'the current snapshot.',
+      },
+      {
+        signature: '@Remote(\'confirmBatch\') confirmBatch(request: BatchConfirmRequest): BatchConfirmResponse',
+        description: 'Confirm a batch of B-class items in one commit: every still-open revision-matching item resolves, and each target reports its own outcome.',
+        parameters: [{ name: 'request', description: 'actor plus the compare-and-set targets.' }],
+        returns: 'per-item results and the post-commit snapshot version.',
+      },
+      {
+        signature: '@Remote(\'resolveDecision\') resolveDecision(request: ResolveDecisionRequest): ResolveDecisionResponse',
+        description: 'Resolve one C-class decision item; C items are never batched.',
+        parameters: [{ name: 'request', description: 'compare-and-set target plus the recorded decision text.' }],
+        returns: 'the single-item outcome and the post-commit snapshot version.',
+      },
+      {
+        signature: '@Remote(\'invalidateItem\') invalidateItem(request: InvalidateItemRequest): InvalidateItemResponse',
+        description: 'Invalidate one open item upstream: the stale-propagation trigger that makes later confirms report `stale` instead of silently resolving.',
+        parameters: [{ name: 'request', description: 'compare-and-set target plus the recorded reason.' }],
+        returns: 'the single-item outcome and the post-commit snapshot version.',
+      },
+    ],
+  },
+  {
+    key: 'workbenchJournal',
+    summary: 'Append-only journal service; the durable truth task-flow projections rebuild from.',
+    description: 'Append-only journal service; the durable truth task-flow projections rebuild from.',
+    methods: [
+      {
+        signature: '@Remote(\'append\') async append(fact: JournalFactInput): Promise<JournalFact>',
+        description: 'Append one fact; the durable write is the commit point of the mutation it records. A replay of the same idempotency key with identical caller fields returns the stored fact; with different fields it fails loud.',
+        parameters: [{ name: 'fact', description: 'caller-supplied fields; the journal assigns the envelope.' }],
+        returns: 'the stored fact with its assigned journalSeq and eventId.',
+      },
+      {
+        signature: '@Remote(\'checkpoint\') checkpoint(): JournalCheckpoint',
+        description: 'Recovery and client-resync position: the highest assigned journalSeq.',
+        parameters: [],
+        returns: 'the checkpoint; `journalSeq` is 0 when the journal is empty.',
+      },
+      {
+        signature: '@Remote(\'replay\') replay(afterSeq: number): JournalFact[]',
+        description: 'Read every fact after one sequence position, in journal order. The authoritative resynchronization path: projections and clients rebuild from replay, never from events.',
+        parameters: [{ name: 'afterSeq', description: 'exclusive lower bound; 0 replays the whole journal.' }],
+        returns: 'facts with `journalSeq > afterSeq`, ascending.',
+      },
+    ],
+  },
+  {
     key: 'workflowEngine',
     summary: 'Workflow Service Definition contract.',
     description: 'Workflow Service Definition contract. Invalid requests throw before publication; a live run is holder-owned, its result never rejects, cancellation and disposal are bounded, and disposal waits for child cleanup within that bound. Lifecycle listener failures are contained, and `workflow/end` fires exactly once as the result settles.',
@@ -2398,6 +2695,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'options', description: 'the full request. A LOOP-built request carries the process-local {@link markAgentLoopRequest} identity and arrives deep-frozen (mutation throws): its content is a pure function of the session log (the reconstructability Agent Note), so listeners read it, never rewrite it. Hand-built calls do not carry that marker; their messages already obey the immutable creation contract.' }],
   },
   {
+    name: 'phase-run/updated',
+    mode: 'emit',
+    signature: '\'phase-run/updated\'(phaseRun: PhaseRunRecord): void',
+    summary: 'Committed phase-run projection change.',
+    description: 'Committed phase-run projection change.',
+    parameters: [{ name: 'phaseRun', description: 'the phase run\'s post-commit projection.' }],
+  },
+  {
     name: 'session-telemetry/record',
     mode: 'waterfall',
     signature: '\'session-telemetry/record\'(record: SessionTelemetryRecord, next: () => SessionTelemetryRecord): SessionTelemetryRecord',
@@ -2510,6 +2815,22 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'task-run/updated',
+    mode: 'emit',
+    signature: '\'task-run/updated\'(run: TaskRunRecord): void',
+    summary: 'Committed task-run projection change.',
+    description: 'Committed task-run projection change.',
+    parameters: [{ name: 'run', description: 'the run\'s post-commit projection.' }],
+  },
+  {
+    name: 'task/updated',
+    mode: 'emit',
+    signature: '\'task/updated\'(task: TaskRecord): void',
+    summary: 'Committed task projection change; forwarded to the workbench UI and droppable — the journal is the authoritative resync path.',
+    description: 'Committed task projection change; forwarded to the workbench UI and droppable — the journal is the authoritative resync path.',
+    parameters: [{ name: 'task', description: 'the task\'s post-commit projection.' }],
+  },
+  {
     name: 'tools/change',
     mode: 'emit',
     signature: '\'tools/change\'(): void',
@@ -2556,6 +2877,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Observe the frozen, lossless-JSON final outcome.',
     description: 'Observe the frozen, lossless-JSON final outcome. Listener failures are contained. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): keyed by `exec.agent`.',
     parameters: [{ name: 'exec', description: 'the execution object that traversed the pipeline.' }, { name: 'result', description: 'a deep-frozen snapshot of the final returned result.' }],
+  },
+  {
+    name: 'workbench/attention-updated',
+    mode: 'emit',
+    signature: '\'workbench/attention-updated\'(update: WorkbenchAttentionUpdate): void',
+    summary: 'Committed change to the workbench attention inbox: one or more items resolved, invalidated, or otherwise revised by a Remote command.',
+    description: 'Committed change to the workbench attention inbox: one or more items resolved, invalidated, or otherwise revised by a Remote command. Emitted after the in-memory store commits, with synchronous listener failures contained and logged by the emitting service.',
+    parameters: [{ name: 'update', description: 'snapshot version plus each changed item\'s new state.' }],
   },
   {
     name: 'workflow/agent-end',
@@ -2714,6 +3043,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
   },
   {
+    name: 'AttentionItemKind',
+    declaration: 'export type AttentionItemKind = \'b-confirm\' | \'c-decision\';',
+  },
+  {
+    name: 'AttentionItemStatus',
+    declaration: 'export type AttentionItemStatus = \'open\' | \'invalidated\' | \'resolved\';',
+  },
+  {
+    name: 'AttentionItemView',
+    declaration: 'export interface AttentionItemView {\n    readonly itemId: WorkbenchItemId;\n    readonly kind: AttentionItemKind;\n    readonly status: AttentionItemStatus;\n    readonly entityRevision: number;\n    readonly title: string;\n    readonly decision?: string;\n}',
+  },
+  {
     name: 'BackendRegistry',
     declaration: 'export class BackendRegistry {\n    register(name: string, backend: StorageBackend): () => void;\n    get(name: string): StorageBackend;\n    names(): string[];\n}',
   },
@@ -2728,6 +3069,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'BashEnvVariableInfo',
     declaration: 'export interface BashEnvVariableInfo extends BashEnvVariable {\n    contributor: string;\n    key: DshEnvironmentKey;\n}',
+  },
+  {
+    name: 'BatchConfirmItem',
+    declaration: 'export interface BatchConfirmItem {\n    readonly itemId: WorkbenchItemId;\n    readonly expectedEntityRevision: number;\n}',
+  },
+  {
+    name: 'BatchConfirmItemResult',
+    declaration: 'export interface BatchConfirmItemResult {\n    readonly itemId: WorkbenchItemId;\n    readonly outcome: BatchConfirmOutcome;\n    readonly currentRevision?: number;\n}',
+  },
+  {
+    name: 'BatchConfirmOutcome',
+    declaration: 'export type BatchConfirmOutcome = \'resolved\' | \'conflict\' | \'stale\' | \'withdrawn\' | \'already-resolved\';',
+  },
+  {
+    name: 'BatchConfirmRequest',
+    declaration: 'export interface BatchConfirmRequest {\n    readonly actor: string;\n    readonly items: readonly BatchConfirmItem[];\n}',
+  },
+  {
+    name: 'BatchConfirmResponse',
+    declaration: 'export interface BatchConfirmResponse {\n    readonly snapshotVersion: number;\n    readonly results: readonly BatchConfirmItemResult[];\n}',
   },
   {
     name: 'Branded',
@@ -2922,6 +3283,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
   },
   {
+    name: 'DecisionOutcome',
+    declaration: 'export type DecisionOutcome = BatchConfirmOutcome;',
+  },
+  {
+    name: 'DeliverableVersion',
+    declaration: 'export interface DeliverableVersion {\n    readonly versionId: DeliverableVersionId;\n    readonly deliverableId: DeliverableId;\n    readonly versionNumber: number;\n    readonly baseVersionId?: DeliverableVersionId;\n    readonly sourceSubmissionId?: SubmissionId;\n    readonly state: DeliverableVersionState;\n    readonly entityRevision: number;\n    readonly createdAt: number;\n}',
+  },
+  {
+    name: 'DeliverableVersionRef',
+    declaration: 'export interface DeliverableVersionRef {\n    readonly deliverableId: DeliverableId;\n    readonly versionId: DeliverableVersionId;\n}',
+  },
+  {
+    name: 'DeliverableVersionState',
+    declaration: 'export type DeliverableVersionState = \'current\' | \'stale\' | \'invalid\' | \'superseded\' | \'cancelled\';',
+  },
+  {
     name: 'DiffCallView',
     declaration: 'export interface DiffCallView {\n    card: \'diff\';\n    title: string;\n    diffs: FileDiff[];\n    locations?: FileLocation[];\n}',
   },
@@ -3090,6 +3467,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface FsWriteOutcome {\n    operation: \'create\' | \'update\';\n    version: FsVersion;\n    before: string | null;\n    after: string;\n}',
   },
   {
+    name: 'GateCheckResult',
+    declaration: 'export interface GateCheckResult {\n    readonly submissionId: SubmissionId;\n    readonly checkId: string;\n    readonly passed: boolean;\n    readonly detail?: string;\n    readonly recordedAt: number;\n}',
+  },
+  {
     name: 'GenerateOptions',
     declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: Message[];\n    system?: string;\n    tools?: ToolSchema[];\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\';\n}',
   },
@@ -3158,6 +3539,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type InboxTarget = \'next-turn\' | \'next-step\';',
   },
   {
+    name: 'InvalidateDownstreamResult',
+    declaration: 'export interface InvalidateDownstreamResult {\n    readonly invalidated: DeliverableVersionId[];\n}',
+  },
+  {
+    name: 'InvalidateItemRequest',
+    declaration: 'export interface InvalidateItemRequest {\n    readonly itemId: WorkbenchItemId;\n    readonly expectedEntityRevision: number;\n    readonly reason: string;\n    readonly actor: string;\n}',
+  },
+  {
+    name: 'InvalidateItemResponse',
+    declaration: 'export interface InvalidateItemResponse {\n    readonly snapshotVersion: number;\n    readonly outcome: InvalidateOutcome;\n    readonly currentRevision?: number;\n}',
+  },
+  {
+    name: 'InvalidateOutcome',
+    declaration: 'export type InvalidateOutcome = \'invalidated\' | \'conflict\' | \'stale\' | \'withdrawn\' | \'already-resolved\';',
+  },
+  {
     name: 'InvariantFailure',
     declaration: 'export type InvariantFailure = (message: string) => never;',
   },
@@ -3224,6 +3621,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'JobStatus',
     declaration: 'export type JobStatus = \'running\' | \'stopping\' | \'completed\' | \'killed\' | \'failed\';',
+  },
+  {
+    name: 'JournalCheckpoint',
+    declaration: 'export interface JournalCheckpoint {\n    readonly journalSeq: number;\n}',
+  },
+  {
+    name: 'JournalEventId',
+    declaration: 'export type JournalEventId = Branded<\'JournalEventId\'>;',
+  },
+  {
+    name: 'JournalFact',
+    declaration: 'export interface JournalFact {\n    readonly journalSeq: number;\n    readonly eventId: JournalEventId;\n    readonly taskId: TaskId;\n    readonly kind: string;\n    readonly occurredAt: number;\n    readonly actor: string;\n    readonly causationId?: JournalEventId;\n    readonly correlationId?: string;\n    readonly idempotencyKey: string;\n    readonly entityRevision: number;\n    readonly payload: JournalPayload;\n    readonly schemaVersion: number;\n}',
+  },
+  {
+    name: 'JournalFactInput',
+    declaration: 'export interface JournalFactInput {\n    readonly taskId: TaskId;\n    readonly kind: string;\n    readonly actor: string;\n    readonly idempotencyKey: string;\n    readonly entityRevision: number;\n    readonly payload: JournalPayload;\n    readonly causationId?: JournalEventId;\n    readonly correlationId?: string;\n}',
+  },
+  {
+    name: 'JournalPayload',
+    declaration: 'export type JournalPayload = null | boolean | number | string | JournalPayload[] | {\n    [key: string]: JournalPayload;\n};',
   },
   {
     name: 'JsonSchemaNode',
@@ -3474,8 +3891,48 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface OneShotSubagentDescriptorData extends SubagentDescriptorBase {\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n}',
   },
   {
+    name: 'P4Mode',
+    declaration: 'export type P4Mode = \'auto\' | \'draft\' | \'skeleton\' | \'verify-normalize\';',
+  },
+  {
+    name: 'P4ModeCriteria',
+    declaration: 'export interface P4ModeCriteria {\n    readonly mode: P4Mode;\n}',
+  },
+  {
     name: 'PermissionSelect',
     declaration: 'export interface PermissionSelect {\n    options: PresetOption[];\n    currentValue: string;\n}',
+  },
+  {
+    name: 'PhaseAssignment',
+    declaration: 'export interface PhaseAssignment {\n    readonly taskId: TaskId;\n    readonly taskRunId: TaskRunId;\n    readonly phaseRunId: PhaseRunId;\n    readonly pinned: RecipeRevision;\n    readonly phase: RecipePhaseSpec;\n    readonly gateChecks: readonly RecipeGateCheckSpec[];\n    readonly attempt: number;\n    readonly submissionId: SubmissionId;\n    readonly agent?: Agent;\n}',
+  },
+  {
+    name: 'PhaseExecutor',
+    declaration: 'export interface PhaseExecutor {\n    readonly name: string;\n    execute(assignment: PhaseAssignment): Promise<PhaseOutcome>;\n}',
+  },
+  {
+    name: 'PhaseOutcome',
+    declaration: 'export type PhaseOutcome = {\n    readonly result: \'completed\';\n    readonly inputVersions: readonly DeliverableVersionRef[];\n    readonly outputVersions: readonly DeliverableVersionRef[];\n    readonly unresolvedIssues: readonly string[];\n    readonly sourceSeqRange: {\n        readonly start: number;\n        readonly end: number;\n    };\n    readonly sourceSeqPersisted: boolean;\n} | {\n    readonly result: \'failed\';\n    readonly failureReason: string;\n    readonly sourceSeqRange: {\n        readonly start: number;\n        readonly end: number;\n    };\n    readonly sourceSeqPersisted: boolean;\n};',
+  },
+  {
+    name: 'PhaseRunId',
+    declaration: 'export type PhaseRunId = Branded<\'PhaseRunId\'>;',
+  },
+  {
+    name: 'PhaseRunRecord',
+    declaration: 'export interface PhaseRunRecord {\n    readonly phaseRunId: PhaseRunId;\n    readonly runId: TaskRunId;\n    readonly taskId: TaskId;\n    readonly phaseId: string;\n    readonly state: PhaseRunState;\n    readonly revision: number;\n    readonly activeSubmissionId?: SubmissionId;\n    readonly schedulingFrozen?: boolean;\n}',
+  },
+  {
+    name: 'PhaseRunState',
+    declaration: 'export type PhaseRunState = \'created\' | \'scheduled\' | \'running\' | \'submitting\' | \'submitted\' | \'gate-running\' | \'awaiting-input\' | \'awaiting-decision\' | \'patching\' | \'stale\' | \'passed\' | \'failed\' | \'superseded\' | \'cancelled\';',
+  },
+  {
+    name: 'PhaseSubmission',
+    declaration: 'export interface PhaseSubmission {\n    readonly submissionId: SubmissionId;\n    readonly taskId: TaskId;\n    readonly taskRunId: TaskRunId;\n    readonly phaseRunId: PhaseRunId;\n    readonly phaseId: string;\n    readonly attempt: number;\n    readonly pinnedRecipe: PinnedRecipe;\n    readonly sourceSessionId: string;\n    readonly sourceSeqRange: {\n        readonly start: number;\n        readonly end: number;\n    };\n    readonly inputVersions: readonly DeliverableVersionRef[];\n    readonly outputVersions: readonly DeliverableVersionRef[];\n    readonly unresolvedIssues: readonly string[];\n    readonly result: SubmissionResult;\n    readonly failureReason?: string;\n    readonly idempotencyKey: string;\n    readonly submittedAt: number;\n    readonly supersedesSubmissionId?: SubmissionId;\n}',
+  },
+  {
+    name: 'PinnedRecipe',
+    declaration: 'export interface PinnedRecipe {\n    readonly recipeId: RecipeId;\n    readonly revision: number;\n    readonly schemaVersion: number;\n    readonly contentHash: string;\n}',
   },
   {
     name: 'PostToolDecision',
@@ -3574,6 +4031,38 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ReasoningEffortId = Branded<\'ReasoningEffortId\'>;',
   },
   {
+    name: 'RecipeCheckKind',
+    declaration: 'export type RecipeCheckKind = \'A\' | \'B\' | \'C\';',
+  },
+  {
+    name: 'RecipeDefaults',
+    declaration: 'export interface RecipeDefaults {\n    readonly batchConfirm: \'per-phase-single\' | \'per-check\';\n    readonly clarify: {\n        readonly maxRounds: number;\n        readonly splitMustDefault: boolean;\n    };\n    readonly draftPolicy: \'block-finalize-not-draft\';\n}',
+  },
+  {
+    name: 'RecipeGateCheckSpec',
+    declaration: 'export interface RecipeGateCheckSpec {\n    readonly checkId: string;\n    readonly phaseId: string;\n    readonly kind: RecipeCheckKind;\n    readonly machineScope: readonly string[];\n    readonly humanAction: readonly string[];\n    readonly circuitBreaker?: string;\n}',
+  },
+  {
+    name: 'RecipeId',
+    declaration: 'export type RecipeId = Branded<\'RecipeId\'>;',
+  },
+  {
+    name: 'RecipeIdentity',
+    declaration: 'export interface RecipeIdentity {\n    readonly recipeId: RecipeId;\n    readonly revision: number;\n}',
+  },
+  {
+    name: 'RecipePayload',
+    declaration: 'export interface RecipePayload {\n    readonly phases: readonly RecipePhaseSpec[];\n    readonly gateChecks: readonly RecipeGateCheckSpec[];\n    readonly defaults: RecipeDefaults;\n    readonly p4Mode: P4ModeCriteria;\n}',
+  },
+  {
+    name: 'RecipePhaseSpec',
+    declaration: 'export interface RecipePhaseSpec {\n    readonly phaseId: string;\n    readonly goal: string;\n    readonly inputs: readonly string[];\n    readonly outputs: readonly string[];\n    readonly submissionCriteria: readonly string[];\n}',
+  },
+  {
+    name: 'RecipeRevision',
+    declaration: 'export interface RecipeRevision {\n    readonly recipeId: RecipeId;\n    readonly revision: number;\n    readonly schemaVersion: number;\n    readonly contentHash: string;\n    readonly payload: RecipePayload;\n    readonly registeredAt: number;\n}',
+  },
+  {
     name: 'RedactedSecret',
     declaration: 'export interface RedactedSecret {\n    path: string[];\n    set: boolean;\n}',
   },
@@ -3600,6 +4089,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResolvedCredential',
     declaration: 'export interface ResolvedCredential {\n    value: string;\n    source: string;\n}',
+  },
+  {
+    name: 'ResolveDecisionRequest',
+    declaration: 'export interface ResolveDecisionRequest {\n    readonly itemId: WorkbenchItemId;\n    readonly expectedEntityRevision: number;\n    readonly decision: string;\n    readonly actor: string;\n}',
+  },
+  {
+    name: 'ResolveDecisionResponse',
+    declaration: 'export interface ResolveDecisionResponse {\n    readonly snapshotVersion: number;\n    readonly outcome: DecisionOutcome;\n    readonly currentRevision?: number;\n}',
   },
   {
     name: 'ResolvedNormalRetryPolicy',
@@ -4162,6 +4659,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SubagentStopReasonMap {\n    completed: \'completed\';\n    aborted: \'aborted\';\n    error: \'error\';\n    \'max-tokens\': \'max-tokens\';\n    refusal: \'refusal\';\n}',
   },
   {
+    name: 'SubmissionEnvironmentFacts',
+    declaration: 'export interface SubmissionEnvironmentFacts {\n    readonly submittedBy: string;\n    readonly sourceSeqPersisted: boolean;\n    readonly inputsCurrent: boolean;\n    readonly outputsValid: boolean;\n}',
+  },
+  {
+    name: 'SubmissionId',
+    declaration: 'export type SubmissionId = Branded<\'SubmissionId\'>;',
+  },
+  {
+    name: 'SubmissionResult',
+    declaration: 'export type SubmissionResult = \'completed\' | \'needs-clarification\' | \'failed\';',
+  },
+  {
     name: 'SubprocessCollect',
     declaration: 'export interface SubprocessCollect {\n    maxBytes: number;\n    spill?: {\n        maxBytes: number;\n    };\n}',
   },
@@ -4240,6 +4749,30 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaskId',
+    declaration: 'export type TaskId = Branded<\'TaskId\'>;',
+  },
+  {
+    name: 'TaskMutationContext',
+    declaration: 'export interface TaskMutationContext {\n    readonly actor: string;\n    readonly reason: string;\n    readonly expectedRevision: number;\n    readonly idempotencyKey: string;\n}',
+  },
+  {
+    name: 'TaskRecord',
+    declaration: 'export interface TaskRecord {\n    readonly taskId: TaskId;\n    readonly workspaceId: string;\n    readonly pinnedRecipe: PinnedRecipe;\n    readonly state: TaskState;\n    readonly revision: number;\n    readonly currentRunId?: TaskRunId;\n    readonly idempotencyKey?: string;\n    readonly createdAt: number;\n}',
+  },
+  {
+    name: 'TaskRunId',
+    declaration: 'export type TaskRunId = Branded<\'TaskRunId\'>;',
+  },
+  {
+    name: 'TaskRunRecord',
+    declaration: 'export interface TaskRunRecord {\n    readonly runId: TaskRunId;\n    readonly taskId: TaskId;\n    readonly pinnedRecipe: PinnedRecipe;\n    readonly revision: number;\n    readonly parentRunId?: TaskRunId;\n    readonly createdAt: number;\n}',
+  },
+  {
+    name: 'TaskState',
+    declaration: 'export type TaskState = \'planning\' | \'running\' | \'awaiting-input\' | \'awaiting-decision\' | \'pausing\' | \'paused\' | \'cancelling\' | \'cancelled\' | \'completed\' | \'failed\';',
   },
   {
     name: 'TerminalBackend',
@@ -4596,6 +5129,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WebUpgradeRoute',
     declaration: 'export interface WebUpgradeRoute {\n    path: string;\n    handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>;\n}',
+  },
+  {
+    name: 'WorkbenchAttentionUpdate',
+    declaration: 'export interface WorkbenchAttentionUpdate {\n    readonly snapshotVersion: number;\n    readonly changed: ReadonlyArray<{\n        readonly itemId: WorkbenchItemId;\n        readonly status: AttentionItemStatus;\n        readonly entityRevision: number;\n    }>;\n}',
+  },
+  {
+    name: 'WorkbenchItemId',
+    declaration: 'export type WorkbenchItemId = Branded<\'WorkbenchItemId\'>;',
+  },
+  {
+    name: 'WorkbenchSnapshot',
+    declaration: 'export interface WorkbenchSnapshot {\n    readonly snapshotVersion: number;\n    readonly items: readonly AttentionItemView[];\n}',
   },
   {
     name: 'WorkflowAgentEndInfo',

@@ -31,6 +31,18 @@
       "path": "../../goal/goal"
     },
     {
+      "path": "../../task-flow/workbench-host"
+    },
+    {
+      "path": "../../task-flow/recipe"
+    },
+    {
+      "path": "../../task-flow/task"
+    },
+    {
+      "path": "../../task-flow/deliverable-minimal"
+    },
+    {
       "path": "../../feedback/message-feedback"
     },
     {

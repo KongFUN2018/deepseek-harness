@@ -12,6 +12,15 @@
       "path": "../../goal/goal"
     },
     {
+      "path": "../../task-flow/workbench-host"
+    },
+    {
+      "path": "../../task-flow/task"
+    },
+    {
+      "path": "../../task-flow/deliverable-minimal"
+    },
+    {
       "path": "../../settings/settings"
     },
     {

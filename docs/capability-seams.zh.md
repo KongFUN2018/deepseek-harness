@@ -111,6 +111,24 @@ flowchart LR
   pkg_agent_spine_demo["agent-spine-demo"]
   pkg_goal["goal"]
   svc_goals["ctx.goals<br/>Same-session goal domain"]
+  pkg_workbench_host["workbench-host"]
+  svc_workbenchHost["ctx.workbenchHost<br/>Cross-session workbench attention inbox"]
+  pkg_api_remotes["api-remotes"]
+  pkg_recipe["recipe"]
+  svc_recipes["ctx.recipes<br/>Immutable task-flow recipe revision registry"]
+  pkg_task["task"]
+  svc_tasks["ctx.tasks<br/>Task-flow task domain service"]
+  pkg_workbench_journal["workbench-journal"]
+  svc_workbenchJournal["ctx.workbenchJournal<br/>Task-flow append-only workbench journal"]
+  pkg_deliverable_minimal["deliverable-minimal"]
+  svc_deliverables["ctx.deliverables<br/>Task-flow minimal deliverable versions"]
+  pkg_task_local["task-local"]
+  pkg_recipe_engine_core["recipe-engine-core"]
+  svc_recipeEngine["ctx.recipeEngine<br/>Task-flow recipe engine core"]
+  pkg_tasks["tasks"]
+  pkg_recipes["recipes"]
+  pkg_agents["agents"]
+  pkg_goals["goals"]
   pkg_e2b["e2b"]
   svc_e2b["ctx.e2b<br/>E2B sandbox lifecycle owner"]
   pkg_fs_e2b["fs-e2b"]
@@ -217,6 +235,7 @@ flowchart LR
   pkg_cordis_host_runner --> svc_dynamicCordisRunner
   pkg_credentials --> svc_credentials
   pkg_credentials_local --> svc_credentials
+  pkg_deliverable_minimal --> svc_deliverables
   pkg_directory_picker --> svc_directoryPicker
   pkg_directory_picker_browse --> svc_directoryPicker
   pkg_directory_picker_native --> svc_directoryPicker
@@ -240,6 +259,8 @@ flowchart LR
   pkg_permission_presets --> svc_permissionPresets
   pkg_plan_mode --> svc_planMode
   pkg_pwsh_local --> svc_shell
+  pkg_recipe --> svc_recipes
+  pkg_recipe_engine_core --> svc_recipeEngine
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
   pkg_sandbox_policy --> svc_sandboxPolicy
@@ -281,6 +302,8 @@ flowchart LR
   pkg_subprocess_e2b --> svc_subprocess
   pkg_subprocess_local --> svc_subprocess
   pkg_system_prompt --> svc_systemPrompt
+  pkg_task --> svc_tasks
+  pkg_task_local --> svc_tasks
   pkg_terminal --> svc_terminals
   pkg_terminal_bash --> svc_terminals
   pkg_token_meter --> svc_tokenMeter
@@ -293,6 +316,8 @@ flowchart LR
   pkg_web_search_exa --> svc_web
   pkg_web_search_perplexity --> svc_web
   pkg_webserver --> svc_webServer
+  pkg_workbench_host --> svc_workbenchHost
+  pkg_workbench_journal --> svc_workbenchJournal
   pkg_workflow --> svc_workflowEngine
   pkg_workflow_worker_thread --> svc_workflowEngine
   pkg_workspace --> svc_workspaceRegistry
@@ -314,6 +339,7 @@ flowchart LR
   svc_credentials --> pkg_apiproxy
   svc_credentials --> pkg_llm_deepseek
   svc_credentials --> pkg_llm_pi_ai
+  svc_deliverables --> pkg_storage_domain
   svc_directoryPicker --> pkg_apiproxy
   svc_dynamicCordisRunner --> pkg_tool_cordis
   svc_e2b --> pkg_fs_e2b
@@ -330,6 +356,13 @@ flowchart LR
   svc_llm --> pkg_agent_loop
   svc_llm --> pkg_compaction_basic
   svc_lsp --> pkg_tool_lsp
+  svc_recipeEngine --> pkg_agents
+  svc_recipeEngine --> pkg_goals
+  svc_recipeEngine --> pkg_recipes
+  svc_recipeEngine --> pkg_storage_domain
+  svc_recipeEngine --> pkg_tasks
+  svc_recipeEngine --> pkg_workbench_journal
+  svc_recipes --> pkg_api_remotes
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -385,6 +418,10 @@ flowchart LR
   svc_systemPrompt --> pkg_tool_terminal
   svc_systemPrompt --> pkg_tool_web
   svc_systemPrompt --> pkg_tools
+  svc_tasks --> pkg_api_remotes
+  svc_tasks --> pkg_deliverable_minimal
+  svc_tasks --> pkg_storage_domain
+  svc_tasks --> pkg_workbench_journal
   svc_terminals --> pkg_tool_terminal
   svc_tokenMeter --> pkg_compaction_basic
   svc_toolResultPruner --> pkg_compaction_basic
@@ -405,6 +442,9 @@ flowchart LR
   svc_webServer --> pkg_connection
   svc_webServer --> pkg_hmr
   svc_webServer --> pkg_modules
+  svc_workbenchHost --> pkg_api_remotes
+  svc_workbenchHost --> pkg_apiproxy
+  svc_workbenchJournal --> pkg_storage_domain
   svc_workflowEngine --> pkg_tool_ralph
   svc_workflowEngine --> pkg_tool_workflow
   svc_workspaceRegistry --> pkg_apiproxy
@@ -445,6 +485,13 @@ flowchart LR
 | `ctx.agentDefaultModel` | `core` | [`agent-default-model`](../packages/core/agent-default-model) | - | [`headless`](../packages/bundle/headless), [`host-apiproxy`](../packages/host/apiproxy) | - | 通过 settings 分层默认 `ModelSelection`，让直接入口与 Host 支撑的 Agent 入口共享同一个状态所有者。 |
 | `ctx.agentLoop` | `bundle` | [`agent-loop`](../packages/core/agent-loop) | - | [`agent-spine-demo`](../packages/examples/agent-spine-demo) | - | 唯一的具体循环插件；扩展包依赖 dsh-agent 的事件和服务，而不依赖此包。 |
 | `ctx.goals` | `core` | [`goal`](../packages/goal/goal) | - | - | - | 从会话日志折叠带修订版本的目标状态，并将实时延续激活保留在进程本地。 |
+| `ctx.workbenchHost` | `core` | [`workbench-host`](../packages/task-flow/workbench-host) | - | `apiproxy`, [`api-remotes`](../packages/api/remotes) | - | 经 Typert 网关提供带版本的注意力快照与 compare-and-set 命令；浏览器工作台消费转发的推送事件。 |
+| `ctx.recipes` | `core` | [`recipe`](../packages/task-flow/recipe) | - | [`api-remotes`](../packages/api/remotes) | - | 注册经验证、内容寻址的 Recipe revision；任务创建固定身份，运行路径经 getPinned 读取并校验哈希。 |
+| `ctx.tasks` | `core` | [`task`](../packages/task-flow/task) | - | [`api-remotes`](../packages/api/remotes) | - | 抽象 Service Definition，拥有钉定配方的 task/run/phase-run 投影与受守卫迁移；provider 在持久 journal 之后实现存储钩子（task-local，M1），引擎驱动受理链。 |
+| `ctx.workbenchJournal` | `core` | [`workbench-journal`](../packages/task-flow/workbench-journal) | - | [`storage-domain`](../packages/storage/storage-domain) | - | 拥有一个 storageDomain 单元作为持久事实源；append 分配单调序列号并作为提交点，checkpoint/replay 在恢复时重建 task-flow 投影。 |
+| `ctx.deliverables` | `core` | [`deliverable-minimal`](../packages/task-flow/deliverable-minimal) | - | [`storage-domain`](../packages/storage/storage-domain) | - | 基于单个 storageDomain 单元拥有每产物不可变版本链；过时写拒绝、当前输入列表与下游失效服务于任务写链与客户端任务看板。 |
+| `ctx.tasks` | `core` | [`task-local`](../packages/task-flow/task-local) | - | [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal), [`deliverable-minimal`](../packages/task-flow/deliverable-minimal) | - | 在单个 storageDomain 单元上实现 TaskHandle 存储钩子；每次写入把 journal 事实作为提交点追加，submission 受理在任务写链内校验产物引用。 |
+| `ctx.recipeEngine` | `core` | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | `tasks`, `recipes`, `agents`, `goals`, [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal) | - | 调度钉定配方的阶段运行并经由贡献的 phase executor 驱动提交—门检—通过链；针对 workbench journal 协调暂停、取消与重启恢复。 |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | 拥有一个共享的 E2B SDK 句柄、远程工作目录和最终沙箱处置，使两个基础 E2B 提供方处于同一个 Linux 运行时中。 |
 | `ctx.subprocess` | `seam` | [`subprocess`](../packages/subprocess/subprocess) | [`subprocess-local`](../packages/subprocess/subprocess-local), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`terminal-bash`](../packages/terminal/terminal-bash), [`lsp-stdio`](../packages/lsp/lsp-stdio), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | - | Bash 执行器、PTY shell 后端、LSP Host，以及进程外 ACP、Codex 和 Claude Code subagent 后端都通过 ctx.subprocess 执行 spawn；该服务负责进程坐标、进程树／会话生命周期、stdio 处置、终端机制和 kill 升级。 |
 | `ctx.shell` | `seam` | [`shell`](../packages/shell/shell) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`pwsh-local`](../packages/shell/pwsh-local) | [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) | - | 面向模型的 shell 工具和钩子桥接消费此 seam；沙箱、远程或 PowerShell 执行器可以替换 bash-local，而无需改动这些消费方。 |

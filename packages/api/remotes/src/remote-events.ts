@@ -16,6 +16,10 @@
  */
 export const API_REMOTE_FORWARDED_EVENTS = [
   'agent-preset/selected',
+  'workbench/attention-updated',
+  'task/updated',
+  'task-run/updated',
+  'phase-run/updated',
   'commands/change',
   'credentials/updated',
   'cordis/request-run',

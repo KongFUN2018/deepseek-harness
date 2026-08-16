@@ -2,18 +2,26 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import commandsRemote from '@deepseek-ai/dsh-commands/remote'
+import deliverablesRemote from '@deepseek-ai/dsh-deliverable-minimal/remote'
 import goalsRemote from '@deepseek-ai/dsh-goal/remote'
 import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
 import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
+import recipeRemote from '@deepseek-ai/dsh-recipe/remote'
+import tasksRemote from '@deepseek-ai/dsh-task/remote'
+import workbenchRemote from '@deepseek-ai/dsh-workbench-host/remote'
 import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 
 export type { TypertClientRemote as ClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory/types'
 export type {} from '@deepseek-ai/dsh-commands/remote'
+export type {} from '@deepseek-ai/dsh-deliverable-minimal/remote'
 export type {} from '@deepseek-ai/dsh-goal/remote'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
+export type {} from '@deepseek-ai/dsh-recipe/remote'
+export type {} from '@deepseek-ai/dsh-task/remote'
+export type {} from '@deepseek-ai/dsh-workbench-host/remote'
 // The forwarded-event allowlist's selection seat: without it in the consumer's
 // compilation face `TypertRemoteEvent` is `never` and every `$on` call fails.
 export type { ApiRemoteForwardedEvent } from '../types.ts'
@@ -22,10 +30,13 @@ export type { ApiRemoteForwardedEvent } from '../types.ts'
 // declaration the Host emits rather than a flattened restatement of it.
 export type {} from '@deepseek-ai/dsh-commands/types'
 export type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
+export type {} from '@deepseek-ai/dsh-deliverable-minimal/types'
 export type {} from '@deepseek-ai/dsh-credentials/types'
 export type {} from '@deepseek-ai/dsh-llm/types'
 export type {} from '@deepseek-ai/dsh-agent-presets/types'
 export type {} from '@deepseek-ai/dsh-settings/types'
+export type {} from '@deepseek-ai/dsh-workbench-host/types'
+export type {} from '@deepseek-ai/dsh-task/types'
 
 /**
  * The carrier's Client-facing types, re-exported so a business package names one
@@ -107,6 +118,10 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       commandsRemote, goalsRemote, dynamicRemote, pluginInventoryRemote, messageFeedbackRemote,
+      recipeRemote,
+      tasksRemote,
+      deliverablesRemote,
+      workbenchRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

@@ -1,0 +1,4 @@
+# Test-only composition for the recipe registry: boots the service through
+# the Loader so the registry's exports and Remote mounting are proven real.
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'

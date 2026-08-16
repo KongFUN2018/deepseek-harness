@@ -96,6 +96,20 @@ flowchart LR
   cfg --> plugin_dsh_base_command_feedback
   plugin_dsh_base_goal["goal<br/>@deepseek-ai/dsh-goal"]
   cfg --> plugin_dsh_base_goal
+  plugin_dsh_base_workbench_host["workbench-host<br/>@deepseek-ai/dsh-workbench-host"]
+  cfg --> plugin_dsh_base_workbench_host
+  plugin_dsh_base_recipe["recipe<br/>@deepseek-ai/dsh-recipe"]
+  cfg --> plugin_dsh_base_recipe
+  plugin_dsh_base_task["task<br/>@deepseek-ai/dsh-task"]
+  cfg --> plugin_dsh_base_task
+  plugin_dsh_base_workbench_journal["workbench-journal<br/>@deepseek-ai/dsh-workbench-journal"]
+  cfg --> plugin_dsh_base_workbench_journal
+  plugin_dsh_base_deliverable_minimal["deliverable-minimal<br/>@deepseek-ai/dsh-deliverable-minimal"]
+  cfg --> plugin_dsh_base_deliverable_minimal
+  plugin_dsh_base_task_local["task-local<br/>@deepseek-ai/dsh-task-local"]
+  cfg --> plugin_dsh_base_task_local
+  plugin_dsh_base_recipe_engine_core["recipe-engine-core<br/>@deepseek-ai/dsh-recipe-engine-core"]
+  cfg --> plugin_dsh_base_recipe_engine_core
   plugin_dsh_base_goal_round_driver["goal-round-driver<br/>@deepseek-ai/dsh-goal-round-driver"]
   cfg --> plugin_dsh_base_goal_round_driver
   plugin_dsh_base_command_goal["command-goal<br/>@deepseek-ai/dsh-command-goal"]
@@ -212,6 +226,13 @@ flowchart LR
 | `commands` | `@deepseek-ai/dsh-commands` |
 | `command-feedback` | `@deepseek-ai/dsh-command-feedback` |
 | `goal` | `@deepseek-ai/dsh-goal` |
+| `workbench-host` | `@deepseek-ai/dsh-workbench-host` |
+| `recipe` | `@deepseek-ai/dsh-recipe` |
+| `task` | `@deepseek-ai/dsh-task` |
+| `workbench-journal` | `@deepseek-ai/dsh-workbench-journal` |
+| `deliverable-minimal` | `@deepseek-ai/dsh-deliverable-minimal` |
+| `task-local` | `@deepseek-ai/dsh-task-local` |
+| `recipe-engine-core` | `@deepseek-ai/dsh-recipe-engine-core` |
 | `goal-round-driver` | `@deepseek-ai/dsh-goal-round-driver` |
 | `command-goal` | `@deepseek-ai/dsh-command-goal` |
 | `plan-mode` | `@deepseek-ai/dsh-plan-mode` |

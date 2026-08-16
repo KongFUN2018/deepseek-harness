@@ -256,6 +256,36 @@
     - id: goal
       name: '@deepseek-ai/dsh-goal'
 
+    # Workbench attention-channel host service: cross-session Remote reads and
+    # compare-and-set commands plus the forwarded push event. Stays on the host
+    # plane for the same reason as `goals` — the Gateway resolves it as a
+    # process-wide Remote namespace, not a per-session preset member.
+    - id: workbench-host
+      name: '@deepseek-ai/dsh-workbench-host'
+
+    # Immutable recipe revision registry: task-flow's pinned-recipe source of
+    # truth. Host-plane Remote namespace like workbench-host.
+    - id: recipe
+      name: '@deepseek-ai/dsh-recipe'
+
+    # Task-flow append-only journal: the durable fact source that recovery
+    # replays; mounts behind the storage stack and needs no config of its own.
+    - id: workbench-journal
+      name: '@deepseek-ai/dsh-workbench-journal'
+
+    # Task-flow minimal deliverable versions: immutable version chains with
+    # stale-write rejection; mounts behind the storage stack, no config of its own.
+    - id: deliverable-minimal
+      name: '@deepseek-ai/dsh-deliverable-minimal'
+
+    # Task-flow durable task provider: implements the task storage hooks over
+    # the storage stack and appends journal facts as commit points.
+    - id: task-local
+      name: '@deepseek-ai/dsh-task-local'
+    # Task-flow recipe engine: schedules pinned-recipe phase runs and drives
+    # the submission-gate-pass chain through the contributed executor.
+    - id: recipe-engine-core
+      name: '@deepseek-ai/dsh-recipe-engine-core'
     - id: goal-round-driver
       name: '@deepseek-ai/dsh-goal-round-driver'
 

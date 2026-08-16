@@ -246,6 +246,11 @@
     - id: ui-message-feedback
       name: '@deepseek-ai/dsh-client-ui-message-feedback'
 
+    # Task-flow board: cross-session task panel at the sidebar foot, over the
+    # tasks Remote with task/updated folds.
+    - id: ui-task-board
+      name: '@deepseek-ai/dsh-client-ui-task-board'
+
     # Model selection: the /model popupSelect + composer seat over session.models.
     - id: ui-model-selection
       name: '@deepseek-ai/dsh-client-ui-model-selection'

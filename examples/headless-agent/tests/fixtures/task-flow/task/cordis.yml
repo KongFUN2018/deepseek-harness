@@ -1,0 +1,6 @@
+# Test-only composition for the task service: boots the real recipe
+# registry through the Loader so task creation and submission acceptance
+# read a registered revision. The task Service Definition is abstract; its
+# M1 provider is driver-local (task-local lands durable storage later).
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'

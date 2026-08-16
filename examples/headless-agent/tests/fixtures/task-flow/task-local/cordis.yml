@@ -1,0 +1,31 @@
+# Test-only composition for the durable task provider: boots the real
+# storage stack, recipe registry, workbench journal, and minimal deliverable
+# service, so task projections and journal facts persist through the same
+# path the base bundle mounts and submissions validate deliverable refs in
+# the task write chain.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    # Driver-private scratch root; !!js reads the environment at load so each
+    # run starts on a clean medium.
+    root: !!js process.env.DSH_TASK_LOCAL_E2E_ROOT ?? '.'
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'
+
+- id: workbench-journal
+  name: '@deepseek-ai/dsh-workbench-journal'
+
+- id: deliverable-minimal
+  name: '@deepseek-ai/dsh-deliverable-minimal'
+
+- id: task-local
+  name: '@deepseek-ai/dsh-task-local'

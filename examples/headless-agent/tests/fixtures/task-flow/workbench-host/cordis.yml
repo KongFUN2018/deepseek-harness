@@ -1,0 +1,16 @@
+# Test-only composition for the workbench-host channel slice: boots the
+# service through the Loader with seeded attention items and no other seam,
+# so the slice proves its own Loader exports and Remote mounting.
+- id: workbench-host
+  name: '@deepseek-ai/dsh-workbench-host'
+  config:
+    seedItems:
+      - itemId: e2e-b-1
+        kind: b-confirm
+        title: confirm scope
+      - itemId: e2e-b-2
+        kind: b-confirm
+        title: confirm coverage
+      - itemId: e2e-c-1
+        kind: c-decision
+        title: pick convention

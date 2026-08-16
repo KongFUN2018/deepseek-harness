@@ -1,0 +1,40 @@
+# Test-only composition for the recipe engine core: boots the real
+# task-flow storage stack, agent and goal services, and the engine, so
+# scheduling, submissions, deterministic gates, and restart recovery run
+# through the same path the base bundle mounts. The driver registers the
+# agent factory and phase executor programmatically.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    # Driver-private scratch root; !!js reads the environment at load so
+    # each run starts on a clean medium, and a restart reuses the same root.
+    root: !!js process.env.DSH_RECIPE_ENGINE_E2E_ROOT ?? '.'
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'
+
+- id: workbench-journal
+  name: '@deepseek-ai/dsh-workbench-journal'
+
+- id: deliverable-minimal
+  name: '@deepseek-ai/dsh-deliverable-minimal'
+
+- id: task-local
+  name: '@deepseek-ai/dsh-task-local'
+
+- id: agent
+  name: '@deepseek-ai/dsh-agent'
+
+- id: goal
+  name: '@deepseek-ai/dsh-goal'
+
+- id: recipe-engine-core
+  name: '@deepseek-ai/dsh-recipe-engine-core'
