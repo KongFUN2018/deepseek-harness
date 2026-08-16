@@ -1,0 +1,14 @@
+- dialog "Decision Inbox":
+  - heading "Decision Inbox" [level=2]
+  - button "Close":
+    - img
+  - alert: 1 item(s) not confirmed (conflict or already handled); resynced
+  - list:
+    - listitem:
+      - checkbox "wbx-bravo"
+      - text: wbx-bravo-gate confirm · open · rev 1
+    - listitem:
+      - checkbox "wbx-delta"
+      - text: wbx-delta-gate confirm · open · rev 1
+  - button "Confirm selected" [disabled]
+  - button "Refresh"

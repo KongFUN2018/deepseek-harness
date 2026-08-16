@@ -616,6 +616,9 @@
       "project": [
         "src/**/*.ts",
         "tests/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "zod"
       ]
     },
     "packages/task-flow/recipe": {
@@ -675,6 +678,9 @@
       "project": [
         "src/**/*.ts",
         "tests/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "zod"
       ]
     },
     "packages/task-flow/edit-lock": {
@@ -763,6 +769,9 @@
       "project": [
         "src/**/*.ts",
         "tests/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "zod"
       ]
     },
     "packages/task-flow/client-ui-task-board": {

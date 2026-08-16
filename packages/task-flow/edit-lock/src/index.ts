@@ -57,7 +57,7 @@ export class EditLockService extends TypertRemoteService {
   /** Deploy-variable sweep cadence; the lease TTL is an acquire argument. */
   static Config: z.ZodType<Config> = z.object({
     sweepIntervalMs: z.number().int().min(50).default(5000),
-  })
+  }).default({ sweepIntervalMs: 5000 })
 
   private leases?: KvTable<string, EditLease>
   /** Serializes read-validate-write mutations so concurrent writers never interleave. */

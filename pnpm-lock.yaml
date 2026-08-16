@@ -7958,6 +7958,10 @@ importers:
         version: link:../workbench-journal
 
   packages/task-flow/impact-propagation:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
@@ -8136,6 +8140,10 @@ importers:
         version: link:../workbench-journal
 
   packages/task-flow/workbench-host:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
@@ -8160,6 +8168,10 @@ importers:
         version: link:../workbench-journal
 
   packages/task-flow/workbench-host-stream:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^

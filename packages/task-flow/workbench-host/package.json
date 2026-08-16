@@ -56,7 +56,9 @@
     "@deepseek-ai/dsh-typert-protocol": "workspace:^",
     "@deepseek-ai/dsh-workbench-journal": "workspace:^"
   },
-  "dependencies": {},
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "@deepseek-ai/dsh-app-boot": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^",
