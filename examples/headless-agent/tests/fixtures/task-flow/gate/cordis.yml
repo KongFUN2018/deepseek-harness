@@ -1,0 +1,47 @@
+# Test-only composition for the complex gate: boots the real task-flow storage
+# stack plus the gate service over the engine, so a recipe declaring a B check
+# parks its phase run in awaiting-decision through the same path the base
+# bundle mounts. The driver registers the agent factory, one executor, and the
+# recipe programmatically.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    root: !!js process.env.DSH_GATE_E2E_ROOT ?? '.'
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'
+
+- id: workbench-journal
+  name: '@deepseek-ai/dsh-workbench-journal'
+
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
+
+- id: impact-propagation
+  name: '@deepseek-ai/dsh-impact-propagation'
+
+- id: task-local
+  name: '@deepseek-ai/dsh-task-local'
+
+- id: agent
+  name: '@deepseek-ai/dsh-agent'
+
+- id: goal
+  name: '@deepseek-ai/dsh-goal'
+
+- id: recipe-engine-core
+  name: '@deepseek-ai/dsh-recipe-engine-core'
+
+- id: attention
+  name: '@deepseek-ai/dsh-attention'
+
+- id: gate
+  name: '@deepseek-ai/dsh-gate'

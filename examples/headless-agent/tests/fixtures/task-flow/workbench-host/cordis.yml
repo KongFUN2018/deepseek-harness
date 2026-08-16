@@ -1,16 +1,37 @@
-# Test-only composition for the workbench-host channel slice: boots the
-# service through the Loader with seeded attention items and no other seam,
-# so the slice proves its own Loader exports and Remote mounting.
+# Test-only composition for the workbench-host projection: boots the real
+# task-flow storage stack, the persistent attention service, and the host
+# projection, so the driver creates B/C items through attention, then reads
+# and mutates them through the workbenchHost wire and asserts the projection.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    root: !!js process.env.DSH_WORKBENCH_HOST_E2E_ROOT ?? '.'
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'
+
+- id: workbench-journal
+  name: '@deepseek-ai/dsh-workbench-journal'
+
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
+
+- id: impact-propagation
+  name: '@deepseek-ai/dsh-impact-propagation'
+
+- id: task-local
+  name: '@deepseek-ai/dsh-task-local'
+
+- id: attention
+  name: '@deepseek-ai/dsh-attention'
+
 - id: workbench-host
   name: '@deepseek-ai/dsh-workbench-host'
-  config:
-    seedItems:
-      - itemId: e2e-b-1
-        kind: b-confirm
-        title: confirm scope
-      - itemId: e2e-b-2
-        kind: b-confirm
-        title: confirm coverage
-      - itemId: e2e-c-1
-        kind: c-decision
-        title: pick convention

@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { boot, installFailLoud, loadEnv, resolveConfigPath } from '@deepseek-ai/dsh-app-boot'
 import { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recipe'
 import { SubmissionId, TaskError } from '@deepseek-ai/dsh-task'
-import { DeliverableId } from '@deepseek-ai/dsh-deliverable-minimal'
+import { DeliverableId } from '@deepseek-ai/dsh-deliverable-local'
 import type { PhaseSubmission } from '@deepseek-ai/dsh-task/types'
 import type { Context } from '@deepseek-ai/cordis'
 

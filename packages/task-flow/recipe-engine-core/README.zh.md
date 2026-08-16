@@ -23,8 +23,8 @@ Task-flow recipe 引擎（`ctx.recipeEngine`）：调度固定 recipe 的阶段�
   name: '@deepseek-ai/dsh-recipe'
 - id: workbench-journal
   name: '@deepseek-ai/dsh-workbench-journal'
-- id: deliverable-minimal
-  name: '@deepseek-ai/dsh-deliverable-minimal'
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
 - id: task-local
   name: '@deepseek-ai/dsh-task-local'
 - id: agent
@@ -75,7 +75,7 @@ Task-flow recipe 引擎（`ctx.recipeEngine`）：调度固定 recipe 的阶段�
 
 ## 已知局限与遗留工作
 
-- **单一 executor 槽位。** `registerExecutor` 对所有阶段只持有一个 executor；按阶段种类路由到不同 executor 随 M2 executor 注册表落地。
+- **单一 executor 槽位。** `registerExecutor` 对所有阶段只持有一个 executor；按阶段种类路由由 `@deepseek-ai/dsh-recipe-multiphase` 交付，它把聚合 executor 注册进这个槽位。
 - **无钥匙会话不含会话日志。** 未注册代理工厂时引擎退化为合成会话 id，阶段溯源完全依赖 executor 回报的 `sourceSeqRange`。
 - **投毒任务保持投毒。** recipe 不支持或恢复不匹配的投毒记录错误并停止调度；M1 没有解除投毒的命令。
 - **无跨宿主调度。** 按任务链、在途映射与会话句柄都是宿主本地的；多宿主协调超出 M1 范围。

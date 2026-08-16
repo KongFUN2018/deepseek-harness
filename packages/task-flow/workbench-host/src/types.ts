@@ -13,11 +13,11 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 /** Identifies one attention item across its revisions. */
 export type WorkbenchItemId = Branded<'WorkbenchItemId'>
 
-/** Gate class of an attention item; B items batch, C items never do. */
-export type AttentionItemKind = 'b-confirm' | 'c-decision'
+/** Gate class of an attention item; B items batch, C items never do, and clarification/recovery items are single-decision. */
+export type AttentionItemKind = 'b-confirm' | 'c-decision' | 'clarification' | 'recovery'
 
-/** Lifecycle of one attention item inside the inbox. */
-export type AttentionItemStatus = 'open' | 'invalidated' | 'resolved'
+/** Lifecycle of one attention item inside the inbox; `stale` marks a resolved item whose upstream inputs changed. */
+export type AttentionItemStatus = 'open' | 'invalidated' | 'resolved' | 'stale'
 
 /** Projection of one attention item inside a snapshot. */
 export interface AttentionItemView {

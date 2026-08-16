@@ -12,23 +12,148 @@
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxattention--attentionservice"></a>
+
+### `ctx.attention` — `AttentionService`
+
+Attention service: the M4 persistent-decision domain, with idempotent item creation, optimistic decision and batch-confirm commands, and upstream invalidation.
+
+```ts cordis-catalog
+/**
+ * Create one attention item. Idempotent: replaying a caller key returns
+ * the stored item; a replay with a different itemId fails loud.
+ * @param input - the item fields; `itemId` is caller-supplied and stable.
+ * @param actor - the actor opening the item.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the stored item.
+ */
+@Remote('createItem') createItem(input: CreateItemInput, actor: string, idempotencyKey: string): Promise<AttentionItem>
+
+/**
+ * List every open item, in open order.
+ * @returns the open items.
+ */
+@Remote('listOpen') listOpen(): AttentionItem[]
+
+/**
+ * Read one attention item.
+ * @param itemId - the item identity.
+ * @returns the item, or undefined when unknown.
+ */
+@Remote('getItem') getItem(itemId: string): AttentionItem | undefined
+
+/**
+ * Resolve one decision item against the given option. Idempotent: a replay
+ * with the same option returns `resolved`; a different option reports
+ * `already-resolved`. A stale, withdrawn, or revision-conflicted item never
+ * resolves silently.
+ * @param itemId - the item to decide.
+ * @param expectedEntityRevision - the revision this decision satisfies.
+ * @param optionId - one of the item's options.
+ * @param actor - the deciding actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the outcome and the revision to retry against when present.
+ */
+@Remote('resolveDecision') resolveDecision( itemId: string, expectedEntityRevision: number, optionId: string, actor: string, idempotencyKey: string, ): Promise<DecisionResult>
+
+/**
+ * Confirm a batch of B-class items in one pass: every still-open
+ * revision-matching item resolves, and each target reports its own outcome.
+ * @param targets - the compare-and-set targets.
+ * @param actor - the confirming actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns per-item results, in request order.
+ */
+@Remote('confirmBatch') confirmBatch( targets: ConfirmTarget[], actor: string, idempotencyKey: string, ): Promise<ConfirmResult[]>
+
+/**
+ * Invalidate one open item upstream: the stale-propagation trigger that
+ * makes later decisions report `stale` instead of silently resolving.
+ * @param itemId - the item to invalidate.
+ * @param expectedEntityRevision - the revision this invalidation satisfies.
+ * @param reason - non-empty reason recorded with the invalidation.
+ * @param actor - the invalidating actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the outcome and the revision to retry against when present.
+ */
+@Remote('invalidateItem') invalidateItem( itemId: string, expectedEntityRevision: number, reason: string, actor: string, idempotencyKey: string, ): Promise<InvalidateResult>
+```
+
+Source: [`packages/task-flow/attention/src/index.ts:53`](../../packages/task-flow/attention/src/index.ts)
+
+<a id="ctxclarifications--clarificationservice"></a>
+
+### `ctx.clarifications` — `ClarificationService`
+
+Clarification service: the M3 persistent-clarification domain, with idempotent request creation, idempotent per-question partial answers, and recovered answer injection into the phase session.
+
+```ts cordis-catalog
+/**
+ * Create one clarification request over a phase run. Idempotent: replaying a
+ * caller key with the same questions returns the stored request; a replay
+ * with different questions fails loud with conflict.
+ * @param phaseRunId - the phase run the request clarifies.
+ * @param questions - the question definitions, in request order.
+ * @param actor - the actor opening the request.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the stored request with its assigned questions.
+ */
+@Remote('createRequest') createRequest( phaseRunId: string, questions: ClarificationQuestionInput[], actor: string, idempotencyKey: string, ): Promise<ClarificationRequest>
+
+/**
+ * Record one answer for a question, at the question's current revision.
+ * Idempotent: replaying the same question revision with the same value
+ * returns the stored answer; a different value fails loud with conflict.
+ * When the answer completes every required question, the service injects
+ * the answer summary and resumes the phase run.
+ * @param questionId - the question to answer.
+ * @param expectedRevision - the question revision the answer satisfies.
+ * @param answer - the answer text; may be empty.
+ * @param actor - the actor supplying the answer.
+ * @param idempotencyKey - caller-owned replay key for the journal fact.
+ * @returns the stored answer.
+ */
+@Remote('answerPartial') answerPartial( questionId: string, expectedRevision: number, answer: string, actor: string, idempotencyKey: string, ): Promise<Answer>
+
+/**
+ * Read one clarification request.
+ * @param requestId - the request identity.
+ * @returns the request, or undefined when unknown.
+ */
+@Remote('getRequest') getRequest(requestId: string): ClarificationRequest | undefined
+
+/**
+ * List the open requests of one phase run, in creation order.
+ * @param phaseRunId - the phase run.
+ * @returns the open requests.
+ */
+@Remote('listOpen') listOpen(phaseRunId: string): ClarificationRequest[]
+```
+
+Source: [`packages/task-flow/clarification/src/index.ts:89`](../../packages/task-flow/clarification/src/index.ts)
+
 <a id="ctxdeliverables--deliverableservice"></a>
 
 ### `ctx.deliverables` — `DeliverableService`
 
-Minimal deliverable version service; the M2 deliverable-local provider replaces the linear scans and the non-Remote host seams behind the same Remote surface.
+Deliverable-local service: the M2 deliverable domain behind the M1 service key and Remote surface, with idempotent saves, write-chain-owned dependency edges, and persisted multi-root impact closures.
 
 ```ts cordis-catalog
 /**
  * Create one immutable version of a deliverable. The caller names the base
- * version it built on; a base that is no longer the latest, or whose state
- * is not `current`, rejects with `stale-write`.
+ * version it built on; a base that is no longer the latest version rejects
+ * with `stale-write`. A staled head remains chainable: the successor
+ * re-validates the deliverable after an impact retires the head's
+ * conclusions. A save replaying a caller idempotency key with identical
+ * fields returns the stored version; with different fields it fails loud
+ * with `idempotency-conflict`, the same rule the journal applies to facts.
  * @param deliverableId - raw deliverable identifier.
  * @param expectedBaseVersion - the latest version the caller built on; `null` on a root version.
  * @param sourceSubmissionId - raw submission identifier that produced the version, when known.
+ * @param idempotencyKey - caller-owned replay key; omit for a fresh save.
  * @returns the stored immutable version.
  */
-@Remote('saveVersion') saveVersion( deliverableId: string, expectedBaseVersion: string | null, sourceSubmissionId: string | null, ): Promise<DeliverableVersion>
+@Remote('saveVersion') saveVersion( deliverableId: string, expectedBaseVersion: string | null, sourceSubmissionId: string | null, idempotencyKey?: string | null, ): Promise<DeliverableVersion>
 
 /**
  * List the current input versions of one phase run: every registered input
@@ -40,12 +165,18 @@ Minimal deliverable version service; the M2 deliverable-local provider replaces 
 @Remote('listCurrentInputs') listCurrentInputs(phaseRunId: string): DeliverableVersion[]
 
 /**
- * Mark every version of each root's chain newer than the root stale. The
- * full transitive impact closure and ImpactSnapshot are M2.
- * @param rootVersionIds - raw version ids whose chains lose currency.
- * @returns the ids newly transitioned to stale.
+ * Invalidate everything downstream of the named roots: each root and its
+ * transitive consumers over `dependsOn` edges transition to `stale`;
+ * already-stale subgraphs are skipped, and chain lineage alone is not an
+ * impact edge — an upstream edit's own successor survives. The closure is
+ * persisted as an `ImpactSnapshot` covering the newly staled versions
+ * grouped per deliverable, the phase runs whose registered inputs lost
+ * currency, and the recorded gate verdicts those runs' submissions
+ * produced.
+ * @param rootVersionIds - raw version ids whose downstream loses currency.
+ * @returns the persisted impact snapshot.
  */
-@Remote('invalidateDownstream') invalidateDownstream(rootVersionIds: string[]): Promise<InvalidateDownstreamResult>
+@Remote('invalidateDownstream') invalidateDownstream(rootVersionIds: string[]): Promise<ImpactSnapshot>
 
 /**
  * Register (or replace) the input versions of one phase run. Host-side seam:
@@ -56,15 +187,120 @@ Minimal deliverable version service; the M2 deliverable-local provider replaces 
 async recordPhaseInputs(phaseRunId: string, versionIds: string[]): Promise<void>
 
 /**
+ * List the phase runs whose registered inputs include one version. Host-side
+ * seam: the edit-lock service freezes exactly these runs while the version
+ * is under a lease.
+ * @param targetVersionId - raw version id the runs consume.
+ * @returns the consuming phase-run ids.
+ */
+listConsumingPhaseRuns(targetVersionId: string): PhaseRunId[]
+
+/**
+ * Register the dependency edges of one version: the input versions its
+ * producing submission consumed. Host-side seam owned by the task write
+ * chain at acceptance — executors never declare edges. Registering the same
+ * refs twice is a no-op; different refs for the same version fail loud.
+ * @param versionId - raw version identifier the edges complete.
+ * @param dependsOn - the input version refs the producing submission consumed.
+ */
+async registerVersionDependencies(versionId: string, dependsOn: readonly DeliverableVersionRef[]): Promise<void>
+
+/**
  * Read one version by identity; `undefined` when absent. Host-side seam for
  * the task write chain's output-exists and source-matches checks.
  * @param versionId - raw version id.
  * @returns the stored version, or `undefined`.
  */
 getVersion(versionId: string): DeliverableVersion | undefined
+
+/**
+ * Read one persisted impact snapshot by identity; `undefined` when absent.
+ * Host-side read for impact consumers and replay.
+ * @param snapshotId - raw snapshot id.
+ * @returns the stored snapshot, or `undefined`.
+ */
+getImpactSnapshot(snapshotId: string): ImpactSnapshot | undefined
 ```
 
-Source: [`packages/task-flow/deliverable-minimal/src/index.ts:48`](../../packages/task-flow/deliverable-minimal/src/index.ts)
+Source: [`packages/task-flow/deliverable-local/src/index.ts:71`](../../packages/task-flow/deliverable-local/src/index.ts)
+
+<a id="ctxeditlock--editlockservice"></a>
+
+### `ctx.editLock` — `EditLockService`
+
+Edit-lock service: durable lease records over deliverable versions.
+
+```ts cordis-catalog
+/**
+ * Acquire a lease on one deliverable version. First write wins: a held
+ * target fails loud with the current holder and expiry. Acquiring also
+ * freezes scheduling of the phase runs that consume the target version.
+ * @param deliverableId - raw deliverable identifier.
+ * @param targetVersionId - raw version the holder edits; must belong to the deliverable.
+ * @param owner - actor holding the lease.
+ * @param ttlMs - lease time-to-live in milliseconds.
+ * @param taskId - optional owning task; cancelled tasks release their leases.
+ * @returns the stored lease.
+ */
+@Remote('acquire') async acquire(deliverableId: string, targetVersionId: string, owner: string, ttlMs: number, taskId?: string | null): Promise<EditLease>
+
+/**
+ * Renew a lease: advance renewedAt and expiresAt. A lapsed lease fails loud.
+ * @param leaseId - raw lease identifier.
+ * @param expectedRevision - the lease's current compare-and-set revision.
+ * @param ttlMs - renewed time-to-live in milliseconds.
+ * @returns the renewed lease.
+ */
+@Remote('renew') async renew(leaseId: string, expectedRevision: number, ttlMs: number): Promise<EditLease>
+
+/**
+ * Release a lease explicitly and clear the consumer freezes it holds.
+ * Releasing an already-released or expired lease returns it unchanged.
+ * @param leaseId - raw lease identifier.
+ * @param expectedRevision - the lease's current compare-and-set revision.
+ * @param actor - actor releasing the lease.
+ * @returns the released lease.
+ */
+@Remote('release') async release(leaseId: string, expectedRevision: number, actor: string): Promise<EditLease>
+
+/**
+ * List active leases, optionally filtered to one task.
+ * @param taskId - optional owning task filter.
+ * @returns the active leases, newest expiry last in no particular order.
+ */
+@Remote('listActive') listActive(taskId?: string | null): EditLease[]
+```
+
+Source: [`packages/task-flow/edit-lock/src/index.ts:53`](../../packages/task-flow/edit-lock/src/index.ts)
+
+<a id="ctxgate--gateservice"></a>
+
+### `ctx.gate` — `GateService`
+
+Watches gate-running phase runs and parks any run whose recipe declares a B/C check for the phase, awaiting an external decision. A-check-only runs pass through untouched so the engine can settle them.
+
+Source: [`packages/task-flow/gate/src/index.ts:32`](../../packages/task-flow/gate/src/index.ts)
+
+<a id="ctximpactpropagation--impactpropagationservice"></a>
+
+### `ctx.impactPropagation` — `ImpactPropagationService`
+
+Impact-propagation service: composes the frozen task commands over one snapshot; owns no durable state of its own.
+
+```ts cordis-catalog
+/**
+ * Apply one impact snapshot to the task plane. Phase runs the snapshot
+ * covers move into terminal `stale` (already-stale runs are skipped), then
+ * the covered gate verdicts are annotated stale. The engine wakes on the
+ * committed phase-run changes and re-opens covered phases as new runs.
+ * @param snapshot - the impact snapshot `invalidateDownstream` returned.
+ * @param mutation - actor, reason, idempotency key of the applying flow.
+ * @returns the task-plane writes this call performed.
+ */
+@Remote('apply') async apply(snapshot: ImpactSnapshot, mutation: TaskMutationContext): Promise<ImpactApplication>
+```
+
+Source: [`packages/task-flow/impact-propagation/src/index.ts:32`](../../packages/task-flow/impact-propagation/src/index.ts)
 
 <a id="ctxrecipeengine--recipeenginecore"></a>
 
@@ -98,6 +334,38 @@ async recover(): Promise<void>
 
 Source: [`packages/task-flow/recipe-engine-core/src/index.ts:70`](../../packages/task-flow/recipe-engine-core/src/index.ts)
 
+<a id="ctxrecipemultiphase--recipemultiphaseservice"></a>
+
+### `ctx.recipeMultiphase` — `RecipeMultiphaseService`
+
+Registers executors by phase kind and dispatches each phase assignment to the executor registered for its kind. On construction it registers one aggregating executor into the recipe engine, so the engine's single slot fans out by `RecipePhaseSpec.kind` without any engine change.
+
+```ts cordis-catalog
+/**
+ * Register one executor for a phase kind. Disposal removes it (HMR-safe).
+ * @param phaseKind - the `RecipePhaseSpec.kind` value this executor serves.
+ * @param executor - the executor performing every phase of that kind.
+ * @returns the disposer removing the registration.
+ */
+registerExecutor(phaseKind: string, executor: PhaseExecutor): () => void
+
+/**
+ * The aggregating executor to register into the engine's single slot. It
+ * dispatches each assignment to the executor registered for the assignment
+ * phase's kind.
+ * @returns a `PhaseExecutor` routing by `assignment.phase.kind`.
+ */
+aggregatingExecutor(): PhaseExecutor
+
+/**
+ * The phase kinds with a registered executor, in registration order.
+ * @returns the registered kinds.
+ */
+listKinds(): string[]
+```
+
+Source: [`packages/task-flow/recipe-multiphase/src/index.ts:31`](../../packages/task-flow/recipe-multiphase/src/index.ts)
+
 <a id="ctxrecipes--reciperegistry"></a>
 
 ### `ctx.recipes` — `RecipeRegistry`
@@ -107,8 +375,10 @@ Immutable recipe revision registry.
 ```ts cordis-catalog
 /**
  * Register one immutable revision; the same payload under the same identity
- * is idempotent, a different payload under a taken identity fails.
- * @param recipeId - raw recipe identifier.
+ * is idempotent, a different payload under a taken identity fails. The id is
+ * trimmed to its canonical form before keying, so padded spellings of one id
+ * address the same revision.
+ * @param recipeId - recipe identifier; surrounding whitespace is trimmed.
  * @param revision - positive revision number.
  * @param payload - canonical revision payload.
  * @returns the stored revision.
@@ -117,14 +387,15 @@ Immutable recipe revision registry.
 
 /**
  * Read one pinned identity, verifying the stored hash against the payload.
- * @param identity - recipe id plus exact revision.
+ * @param identity - recipe id plus exact revision; the id is trimmed to the
+ * canonical form before keying, matching `register`.
  * @returns the stored revision.
  */
 @Remote('getPinned') getPinned(identity: RecipeIdentity): RecipeRevision
 
 /**
  * Highest registered revision of one recipe; new-task creation only.
- * @param recipeId - raw recipe identifier.
+ * @param recipeId - recipe identifier; surrounding whitespace is trimmed.
  * @returns the latest revision, or `undefined` when the recipe is unknown.
  */
 @Remote('latest') latest(recipeId: string): RecipeRevision | undefined
@@ -136,7 +407,7 @@ Immutable recipe revision registry.
 @Remote('list') list(): RecipeIdentity[]
 ```
 
-Source: [`packages/task-flow/recipe/src/index.ts:106`](../../packages/task-flow/recipe/src/index.ts)
+Source: [`packages/task-flow/recipe/src/index.ts:107`](../../packages/task-flow/recipe/src/index.ts)
 
 <a id="ctxtasks--taskhandle-abstract-seam"></a>
 
@@ -296,6 +567,88 @@ Task service: durable task/run/phase projections and guarded commands.
 @Remote('cancelPhaseRun') async cancelPhaseRun(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
 
 /**
+ * Mark one phase run stale: the M2 impact command. A stale run is
+ * terminal; the engine re-opens the phase as a new run. Runs in `running`
+ * or `submitting` reject — an in-flight atomic action settles per the M1
+ * quiescence contract.
+ * @param phaseRunId - the phase run the impact closure covers.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection.
+ */
+@Remote('markPhaseStale') async markPhaseStale(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Park one gate-running phase run in `awaiting-input`: the M3 clarification
+ * state. The clarification service resolves the inputs and resumes the run.
+ * @param phaseRunId - the phase run awaiting clarification input.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection.
+ */
+@Remote('markPhaseAwaitingInput') async markPhaseAwaitingInput(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Park one gate-running phase run in `awaiting-decision`: the M3 complex-gate
+ * state for B/C checks. The attention service decides and resumes the run.
+ * @param phaseRunId - the phase run awaiting a B/C decision.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection.
+ */
+@Remote('markPhaseAwaitingDecision') async markPhaseAwaitingDecision(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Return a parked phase run from `awaiting-input` or `awaiting-decision` to
+ * `gate-running`, so the engine re-runs the gate. Clarification completion
+ * and attention decisions resume through this command.
+ * @param phaseRunId - the parked phase run.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection.
+ */
+@Remote('resumePhaseFromAwaiting') async resumePhaseFromAwaiting(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Record the phase-session id the engine opened for this run. Idempotent:
+ * the same id returns the stored record without a write; a changed id (a
+ * retry opening a new session) updates the binding. The M3 clarification
+ * service reads this id to inject answered clarification payloads.
+ * @param phaseRunId - the phase run whose session id to record.
+ * @param sessionId - the phase-session id.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection.
+ */
+@Remote('recordPhaseSession') async recordPhaseSession(phaseRunId: string, sessionId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Freeze one phase run's scheduling: the engine dispatches no new work for
+ * a frozen run while in-flight atomic actions still settle. The M2
+ * edit-lock service sets this while a lease covers a version the run's
+ * registered inputs consume.
+ * @param phaseRunId - the phase run to freeze.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection with the flag set.
+ */
+@Remote('freezePhaseScheduling') async freezePhaseScheduling(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Clear one phase run's scheduling freeze; the engine wakes on the
+ * committed change and resumes dispatching.
+ * @param phaseRunId - the frozen phase run.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection with the flag cleared.
+ */
+@Remote('clearPhaseScheduling') async clearPhaseScheduling(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Annotate recorded gate-check verdicts stale: the M2 impact command for
+ * verdicts the closure covers. A staled verdict supports no pass decision.
+ * Idempotent: verdicts already staled are returned unchanged without a write.
+ * @param submissionId - the submission whose verdicts the closure covers.
+ * @param checkIds - the check ids to annotate; unknown ids are ignored.
+ * @param mutation - actor, reason, idempotency key of the impact command.
+ * @returns the verdicts this call staled, in storage order.
+ */
+@Remote('markGateChecksStale') async markGateChecksStale(submissionId: string, checkIds: readonly string[], mutation: TaskMutationContext): Promise<GateCheckResult[]>
+
+/**
  * Read one task projection.
  * @param taskId - the task to read.
  * @returns the current projection.
@@ -338,6 +691,23 @@ Task service: durable task/run/phase projections and guarded commands.
 ```
 
 Source: [`packages/task-flow/task/src/index.ts:65`](../../packages/task-flow/task/src/index.ts)
+
+<a id="ctxworkbenchhoststream--workbenchhoststreamservice"></a>
+
+### `ctx.workbenchHostStream` — `WorkbenchHostStreamService`
+
+Attention incremental stream: the M4 cursor-based change feed over the persistent attention inbox, derived from the append-only workbench journal.
+
+```ts cordis-catalog
+/**
+ * Read the attention change events after a journal cursor and the new cursor.
+ * @param cursor - exclusive journal lower bound; omitted or non-positive replays the whole stream.
+ * @returns the events in journal order plus this boot's stream id and cursor.
+ */
+@Remote('listIncremental') listIncremental(cursor?: number): IncrementalPage
+```
+
+Source: [`packages/task-flow/workbench-host-stream/src/index.ts:72`](../../packages/task-flow/workbench-host-stream/src/index.ts)
 
 <a id="ctxworkbenchjournal--workbenchjournalservice"></a>
 
@@ -392,7 +762,7 @@ Committed phase-run projection change.
 'phase-run/updated'(phaseRun: PhaseRunRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:209`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:217`](../../packages/task-flow/task/src/types.ts)
 
 <a id="task-events"></a>
 
@@ -414,7 +784,7 @@ Committed task projection change; forwarded to the workbench UI and droppable �
 'task/updated'(task: TaskRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:197`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:205`](../../packages/task-flow/task/src/types.ts)
 
 <a id="task-run-events"></a>
 
@@ -435,5 +805,5 @@ Committed task-run projection change.
 'task-run/updated'(run: TaskRunRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:203`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:211`](../../packages/task-flow/task/src/types.ts)
 <!-- END GENERATED cordis-surface -->

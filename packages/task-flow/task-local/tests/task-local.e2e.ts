@@ -39,10 +39,12 @@ describe('durable task provider through a real cordis.yml and headless process',
     expect(projection.dedupedGates).toBe(1)
     expect(projection.completedState).toBe('completed')
     expect(projection.taskFacts).toBe(4)
-    expect(projection.journalSeq).toBe(12)
+    // M2 grows the deliverable fact stream: invalidation appends the staled
+    // version and the impact snapshot alongside the write-chain registrations.
+    expect(projection.journalSeq).toBe(17)
     expect(projection.eventsSeen).toBe(4)
     expect(projection.restartState).toBe('completed')
-    expect(projection.restartJournalSeq).toBe(12)
+    expect(projection.restartJournalSeq).toBe(17)
     expect(projection.restartGates).toBe(1)
     expect(projection.restartInputs).toBe(0)
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)

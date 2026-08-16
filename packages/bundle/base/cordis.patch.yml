@@ -256,12 +256,24 @@
     - id: goal
       name: '@deepseek-ai/dsh-goal'
 
+    # Persistent attention inbox: durable decision items and the
+    # compare-and-set commands the workbench host projects and delegates to.
+    # Mounts behind the storage stack and journal, no config of its own.
+    - id: attention
+      name: '@deepseek-ai/dsh-attention'
+
     # Workbench attention-channel host service: cross-session Remote reads and
     # compare-and-set commands plus the forwarded push event. Stays on the host
     # plane for the same reason as `goals` — the Gateway resolves it as a
     # process-wide Remote namespace, not a per-session preset member.
     - id: workbench-host
       name: '@deepseek-ai/dsh-workbench-host'
+
+    # Attention incremental-stream host service: cursor-ordered change feed
+    # projected from the workbench journal's attention facts. Host-plane Remote
+    # namespace like workbench-host.
+    - id: workbench-host-stream
+      name: '@deepseek-ai/dsh-workbench-host-stream'
 
     # Immutable recipe revision registry: task-flow's pinned-recipe source of
     # truth. Host-plane Remote namespace like workbench-host.
@@ -273,10 +285,21 @@
     - id: workbench-journal
       name: '@deepseek-ai/dsh-workbench-journal'
 
-    # Task-flow minimal deliverable versions: immutable version chains with
-    # stale-write rejection; mounts behind the storage stack, no config of its own.
-    - id: deliverable-minimal
-      name: '@deepseek-ai/dsh-deliverable-minimal'
+    # Task-flow deliverable domain: immutable version chains with dependency
+    # edges, idempotent saves, and impact snapshots; mounts behind the storage
+    # stack and journal, no config of its own.
+    - id: deliverable-local
+      name: '@deepseek-ai/dsh-deliverable-local'
+
+    # Task-flow impact propagation: applies deliverable impact snapshots to
+    # the task plane through the frozen task commands; no config of its own.
+    - id: impact-propagation
+      name: '@deepseek-ai/dsh-impact-propagation'
+
+    # Task-flow edit lock: first-write-wins leases over deliverable versions;
+    # acquisition freezes consuming phase scheduling, release or expiry clears.
+    - id: edit-lock
+      name: '@deepseek-ai/dsh-edit-lock'
 
     # Task-flow durable task provider: implements the task storage hooks over
     # the storage stack and appends journal facts as commit points.

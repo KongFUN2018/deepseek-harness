@@ -84,6 +84,10 @@ export class RecipeEngineCore extends Service {
   constructor(ctx: Context) {
     super(ctx, 'recipeEngine')
     ctx.on('task/updated', (task: TaskRecord) => { void this.trigger(task.taskId) }, { global: true })
+    // Impact staling and scheduling-freeze toggles publish phase-run changes
+    // without a task write: wake the owning task so stale phases re-open and
+    // cleared freezes resume dispatch.
+    ctx.on('phase-run/updated', (run: PhaseRunRecord) => { void this.trigger(run.taskId) }, { global: true })
   }
 
   /** Open the engine domain, then reconcile recovery for every known task. */
@@ -202,7 +206,6 @@ export class RecipeEngineCore extends Service {
       if (task.state !== 'running') return
       const pinned = this.resolvePinned(task)
       if (pinned === undefined) return
-      if (!this.scopeOk(task, pinned)) return
       if (!await this.advanceTask(task, pinned)) return
     }
   }
@@ -224,14 +227,6 @@ export class RecipeEngineCore extends Service {
       return undefined
     }
     return pinned
-  }
-
-  /** Refuse recipes that declare B/C checks: the M1 engine runs A checks only. */
-  private scopeOk(task: TaskRecord, pinned: RecipeRevision): boolean {
-    const unsupported = pinned.payload.gateChecks.filter(check => check.kind !== 'A')
-    if (unsupported.length === 0) return true
-    this.poison(task.taskId, `recipe-unsupported: ${unsupported.length} non-A gate check(s) declared; the M1 engine runs deterministic A checks only`)
-    return false
   }
 
   /**
@@ -263,6 +258,9 @@ export class RecipeEngineCore extends Service {
     }
     const phaseRun = active[0]
     if (phaseRun === undefined) return false
+    // A scheduling freeze holds dispatch only: in-flight atomic actions still
+    // settle and their submitted facts stay accepted per the M1 contract.
+    if (phaseRun.schedulingFrozen === true) return false
     const binding = this.bindingOf(String(phaseRun.phaseRunId))
     const phase = phaseOrder.find(spec => spec.phaseId === phaseRun.phaseId)
     if (phase === undefined) {
@@ -301,6 +299,9 @@ export class RecipeEngineCore extends Service {
 
   /** With every phase run terminal, open the next phase or complete/fail the task. */
   private async advancePhases(task: TaskRecord, runs: readonly PhaseRunRecord[], phaseOrder: readonly RecipePhaseSpec[]): Promise<boolean> {
+    // A scheduling freeze stops every new scheduling decision for the run,
+    // including completion, until the covering lease clears the freeze.
+    if (runs.some(run => run.schedulingFrozen === true)) return false
     const key = String(task.taskId)
     const passed = new Set(runs.filter(run => run.state === 'passed').map(run => run.phaseId))
     const next = phaseOrder.find(spec => !passed.has(spec.phaseId))
@@ -344,6 +345,7 @@ export class RecipeEngineCore extends Service {
     const attempt = (binding?.attempt ?? 0) + 1
     const submissionId = this.submissionIdFor(phaseRun, attempt)
     const session = await this.openSession(phaseRun, phase, attempt)
+    await this.ctx.tasks.recordPhaseSession(String(phaseRun.phaseRunId), session.sessionId, this.mutation(task.taskId, phaseRun.revision, 'record-session'))
     const next: PhaseSessionBinding = {
       phaseRunId: phaseRun.phaseRunId,
       taskId: task.taskId,
@@ -464,9 +466,11 @@ export class RecipeEngineCore extends Service {
       return
     }
     const checks = pinned.payload.gateChecks.filter(check => check.phaseId === phaseRun.phaseId)
+    const aChecks = checks.filter(check => check.kind === 'A')
+    const hasComplexChecks = checks.length !== aChecks.length
     const recorded = await this.ctx.tasks.listGateResults(String(submissionId))
     const recordedIds = new Set(recorded.map(result => result.checkId))
-    for (const check of checks) {
+    for (const check of aChecks) {
       if (recordedIds.has(check.checkId)) continue
       const verdict = this.evaluateCheck(check, phase, submission)
       await this.ctx.tasks.recordGateCheck({
@@ -475,10 +479,16 @@ export class RecipeEngineCore extends Service {
         passed: verdict.passed,
         detail: verdict.detail,
         recordedAt: submission.submittedAt,
+        uncoveredScope: [...check.humanAction],
+        evidenceRefs: submission.outputVersions.map(ref => String(ref.versionId)),
       })
     }
+    // B/C checks carry no machine verdict: the gate service advances the run
+    // to awaiting-decision and the engine waits for the decision round.
+    if (hasComplexChecks) return
     const results = await this.ctx.tasks.listGateResults(String(submissionId))
-    const allPassed = results.length === checks.length && results.every(result => result.passed)
+    // A stale-annotated A verdict supports no pass; the phase run re-executes.
+    const allPassed = results.length === aChecks.length && results.every(result => result.passed && result.stale !== true)
     if (allPassed) {
       await this.ctx.tasks.markPhasePassed(String(phaseRun.phaseRunId), this.mutation(task.taskId, current.revision, 'pass-phase'))
     } else {

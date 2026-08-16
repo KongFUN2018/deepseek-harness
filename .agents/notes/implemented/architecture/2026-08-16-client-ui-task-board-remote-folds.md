@@ -36,4 +36,4 @@ The panel is deliberately M1-minimal: state dot, task id, state word, revision, 
 
 - The board is the first client plugin outside `packages/client/`; its registration proves the three surfaces are location-independent (the css-modules `include` needed one explicit `tsconfig.client.json` line, mirroring the ui-cordis precedent).
 - `task-run/updated` and `phase-run/updated` are already forwarded but unconsumed here; the task-detail package inherits the same fold pattern.
-- The controller pattern (snapshot store + revision-gated fold + reset resync) is the template the attention inbox will need; when a second consumer appears, extracting the shared fold into a small helper beats copying it.
+- The controller pattern (snapshot store + revision-gated fold + reset resync) is the template the attention inbox reuses in [`task-flow-m4-client-ui`](2026-08-16-task-flow-m4-client-ui.md); it is copied there rather than extracted, and extracting the shared fold into a small helper stays deferred until a third consumer appears.

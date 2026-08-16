@@ -10,8 +10,8 @@
 import { Context } from '@deepseek-ai/cordis'
 import { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentFactory } from '@deepseek-ai/dsh-agent'
-import { DeliverableId } from '@deepseek-ai/dsh-deliverable-minimal'
-import type { DeliverableService } from '@deepseek-ai/dsh-deliverable-minimal'
+import { DeliverableId } from '@deepseek-ai/dsh-deliverable-local'
+import type { DeliverableService } from '@deepseek-ai/dsh-deliverable-local'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { PhaseAssignment, PhaseOutcome } from '../../src/types.ts'
 

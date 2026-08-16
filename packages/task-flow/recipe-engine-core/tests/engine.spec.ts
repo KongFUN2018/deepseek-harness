@@ -7,7 +7,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
-import DeliverableService from '@deepseek-ai/dsh-deliverable-minimal'
+import DeliverableService, { DeliverableId, DeliverableVersionId } from '@deepseek-ai/dsh-deliverable-local'
+import ImpactPropagationService from '@deepseek-ai/dsh-impact-propagation'
 import GoalService from '@deepseek-ai/dsh-goal'
 import RecipeRegistry, { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recipe'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -37,6 +38,7 @@ async function harness(pool?: MemoryMediaPool) {
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
   await ctx.plugin(LocalTaskService).await()
+  await ctx.plugin(ImpactPropagationService)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(GoalService)
   await ctx.plugin(RecipeEngineCore).await()
@@ -264,6 +266,7 @@ describe('recipe engine core', () => {
     const created = await startOne(h)
     await waitFor(() => started)
     const phaseRun = (await h.tasks.listPhaseRuns(String((await h.tasks.getTask(created.taskId))!.currentRunId!)))[0]
+    expect(phaseRun!.sessionId).toBe(`phase-${phaseRun!.phaseRunId}-a1`)
     const sessionId = SessionId(`phase-${phaseRun!.phaseRunId}-a1`)
     const agent = h.ctx.agents.get(sessionId)
     expect(agent).toBeDefined()
@@ -272,5 +275,87 @@ describe('recipe engine core', () => {
     release()
     await waitFor(async () => (await taskState(h, created.taskId)) === 'completed')
     expect(h.ctx.agents.get(sessionId)).toBeUndefined()
+  })
+
+  it('re-opens a phase whose passed run impact marked stale, re-earning the pass on a new run over the edited upstream', async () => {
+    const h = await harness()
+    current = h.ctx
+    const DOC = DeliverableId('upstream-doc')
+    const docV1 = await h.deliverables.saveVersion(DOC, null, null)
+    const docV2 = await h.deliverables.saveVersion(DOC, docV1.versionId, null)
+    h.ctx.recipes.register('two-phase', 1, {
+      phases: [
+        { phaseId: 'main', kind: 'default', goal: 'Produce the main deliverable.', inputs: [], outputs: ['main deliverable'], submissionCriteria: ['one explicit submission'] },
+        { phaseId: 'review', kind: 'default', goal: 'Produce the review deliverable.', inputs: [], outputs: ['review deliverable'], submissionCriteria: ['one explicit submission'] },
+      ],
+      gateChecks: [
+        { checkId: 'main-complete', phaseId: 'main', kind: 'A', machineScope: ['the accepted submission lists every declared phase output'], humanAction: [] },
+        { checkId: 'review-complete', phaseId: 'review', kind: 'A', machineScope: ['the accepted submission lists every declared phase output'], humanAction: [] },
+      ],
+      defaults: {
+        batchConfirm: 'per-phase-single',
+        clarify: { maxRounds: 2, splitMustDefault: true },
+        draftPolicy: 'block-finalize-not-draft',
+      },
+      p4Mode: { mode: 'auto' },
+    })
+    let reviewStarted = false
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    let consumedInput = docV1.versionId
+    let mainLatest: ReturnType<typeof DeliverableVersionId> | null = null
+    h.engine.registerExecutor({
+      name: 'two-phase',
+      async execute(assignment) {
+        if (assignment.phase.phaseId === 'main') {
+          const version = await h.deliverables.saveVersion(DeliverableId('main deliverable'), mainLatest, assignment.submissionId)
+          mainLatest = version.versionId
+          return {
+            result: 'completed',
+            inputVersions: [{ deliverableId: DOC, versionId: consumedInput }],
+            outputVersions: [{ deliverableId: DeliverableId('main deliverable'), versionId: version.versionId }],
+            unresolvedIssues: [],
+            sourceSeqRange: { start: 1, end: 1 },
+            sourceSeqPersisted: true,
+          }
+        }
+        reviewStarted = true
+        await gate
+        const version = await h.deliverables.saveVersion(DeliverableId('review deliverable'), null, assignment.submissionId)
+        return {
+          result: 'completed',
+          inputVersions: [],
+          outputVersions: [{ deliverableId: DeliverableId('review deliverable'), versionId: version.versionId }],
+          unresolvedIssues: [],
+          sourceSeqRange: { start: 1, end: 1 },
+          sourceSeqPersisted: true,
+        }
+      },
+    })
+    const created = await h.tasks.createTask('two-phase', 'w-1', 'unit', 'create-k')
+    await h.tasks.startTask(created.taskId, mutation(1))
+    await waitFor(() => reviewStarted)
+    const mainRun = (await h.tasks.listPhaseRuns(String((await h.tasks.getTask(created.taskId))!.currentRunId!)))
+      .find(run => run.phaseId === 'main')
+    expect(mainRun?.state).toBe('passed')
+    // The upstream edit lands: the old version is invalidated, the snapshot
+    // is applied, and the passed run retires as terminal `stale`.
+    const snapshot = await h.deliverables.invalidateDownstream([docV1.versionId])
+    expect(snapshot.affectedPhaseRuns).toContain(mainRun!.phaseRunId)
+    await h.ctx.impactPropagation.apply(snapshot, mutation(0, { idempotencyKey: 'impact-k' }))
+    expect((await h.tasks.getPhaseRun(mainRun!.phaseRunId))?.state).toBe('stale')
+    consumedInput = docV2.versionId
+    release()
+    // The engine re-opens `main` as a new run; the pass is re-earned over
+    // the edited upstream and the task completes.
+    await waitFor(async () => (await taskState(h, created.taskId)) === 'completed')
+    const task = await h.tasks.getTask(created.taskId)
+    const phases = await h.tasks.listPhaseRuns(String(task!.currentRunId))
+    const mainRuns = phases.filter(run => run.phaseId === 'main')
+    expect(mainRuns.length).toBeGreaterThanOrEqual(2)
+    expect(mainRuns[mainRuns.length - 1]?.state).toBe('passed')
+    expect(mainRuns.some(run => run.state === 'stale')).toBe(true)
+    const staledVerdicts = await h.tasks.listGateResults(String(mainRuns[0]!.activeSubmissionId))
+    expect(staledVerdicts[0]?.stale).toBe(true)
   })
 })

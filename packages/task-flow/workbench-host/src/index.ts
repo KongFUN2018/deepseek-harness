@@ -1,16 +1,22 @@
 /**
- * Workbench attention-channel host service: an in-memory versioned attention
- * inbox validating the host-client channel slice — snapshot reads,
- * compare-and-set Remote commands, and the forwarded push event — before the
- * M1 task engine lands its durable journal.
+ * Workbench attention-channel host service: the client-safe projection over
+ * the M4 persistent attention inbox (`ctx.attention`). Snapshot reads project
+ * open `AttentionItem`s into wire views; confirm/resolve/invalidate delegate
+ * to the attention service's compare-and-set commands, so a stale, withdrawn,
+ * resolved, or version-conflicted item is never silently confirmed. The
+ * `workbench/attention-updated` event still broadcasts after a committed
+ * change, and the snapshot version is the journal checkpoint seq.
  * @module @deepseek-ai/dsh-workbench-host
  */
 
+import { randomUUID } from 'node:crypto'
 import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import { AttentionItemId } from '@deepseek-ai/dsh-attention'
+import type { AttentionItem, ConfirmTarget } from '@deepseek-ai/dsh-attention'
+import '@deepseek-ai/dsh-attention'
+import '@deepseek-ai/dsh-workbench-journal'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { WorkbenchItemId as WorkbenchItemIdValue } from './runtime.ts'
-import type { WorkbenchItemId } from './types.ts'
 import type {
   AttentionItemView,
   BatchConfirmItemResult,
@@ -21,7 +27,8 @@ import type {
   ResolveDecisionRequest,
   ResolveDecisionResponse,
   WorkbenchAttentionUpdate,
-  WorkbenchItemId as WorkbenchItemIdType,  WorkbenchSnapshot,
+  WorkbenchItemId,
+  WorkbenchSnapshot,
 } from './types.ts'
 
 export { WorkbenchItemId } from './runtime.ts'
@@ -33,44 +40,12 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-/** Loader config: attention items seeded at boot for the channel slice. */
-export interface Config {
-  /** Items present at boot; ids must be unique and fields non-empty. */
-  seedItems?: SeedItem[]
-}
-
-/** One attention item present in the inbox at boot. */
-export interface SeedItem {
-  /** Stable item identifier; unique within the seed list. */
-  itemId: string
-  /** Gate class of the item: B-class confirmations or C-class decisions. */
-  kind: 'b-confirm' | 'c-decision'
-  /** Human-readable inbox title for the item. */
-  title: string
-}
-
-/** Mutable per-item state behind the immutable views. */
-interface StoredItem {
-  readonly itemId: WorkbenchItemId
-  readonly kind: 'b-confirm' | 'c-decision'
-  status: 'open' | 'invalidated' | 'resolved'
-  entityRevision: number
-  readonly title: string
-  decision?: string
-}
-
 /** One committed change row carried by the push event. */
 interface ChangedRow {
   readonly itemId: WorkbenchItemId
-  readonly status: StoredItem['status']
+  readonly status: AttentionItemView['status']
   readonly entityRevision: number
 }
-
-/** Result of one compare-and-set attempt against the store, per target state. */
-type TransitionResult<Next extends 'resolved' | 'invalidated'> =
-  | { readonly outcome: Next; readonly item: StoredItem }
-  | { readonly outcome: 'conflict' | 'stale' | 'already-resolved'; readonly item: StoredItem }
-  | { readonly outcome: 'withdrawn' }
 
 /** Validate one wire actor identity: non-empty after trim. */
 function resolveActor(value: string): string {
@@ -96,85 +71,65 @@ function resolveText(value: string, field: string): string {
   return value.trim()
 }
 
-/** Materialize defaults and validate the boot seed list. */
-function resolveSeeds(config: Config): Map<WorkbenchItemIdType, StoredItem> {
-  const items = new Map<WorkbenchItemId, StoredItem>()
-  for (const seed of config.seedItems ?? []) {
-    const id = resolveText(seed.itemId, 'seed itemId')
-    const key = WorkbenchItemIdValue(id)
-    if (items.has(key)) {
-      throw new TypeError(`workbench seed itemId "${id}" appears twice`)
-    }
-    items.set(key, {
-      itemId: key,
-      kind: seed.kind,
-      status: 'open',
-      entityRevision: 1,
-      title: resolveText(seed.title, `seed item "${id}" title`),
-    })
-  }
-  return items
-}
-
-/** Project one stored item into its immutable view. */
-function viewOf(item: StoredItem): AttentionItemView {
+/** Project one open attention item into its immutable wire view. */
+function viewOf(item: AttentionItem): AttentionItemView {
   return {
-    itemId: item.itemId,
+    itemId: WorkbenchItemIdValue(String(item.itemId)),
     kind: item.kind,
-    status: item.status,
+    status: item.state,
     entityRevision: item.entityRevision,
-    title: item.title,
-    ...item.decision === undefined ? {} : { decision: item.decision },
+    title: item.checkId ?? item.decisionKind,
   }
 }
 
-/** Workbench attention inbox (`ctx.workbenchHost`). */
+/**
+ * Workbench attention inbox (`ctx.workbenchHost`): the M4 client-safe
+ * projection over the persistent attention service.
+ */
 export class WorkbenchHostService extends TypertRemoteService {
-  static Config: z<Config> = z.object({
-    seedItems: z.array(z.object({
-      itemId: z.string(),
-      kind: z.union(['b-confirm', 'c-decision'] as const),
-      title: z.string(),
-    })).default([]),
-  })
+  /** The service projects and delegates to the persistent attention service and reads the journal position. */
+  static inject = ['attention', 'workbenchJournal']
 
-  private readonly items: Map<WorkbenchItemId, StoredItem>
-  private snapshotVersion: number
-
-  constructor(ctx: Context, config: Config = {}) {
+  constructor(ctx: Context) {
     super(ctx, 'workbenchHost')
-    this.items = resolveSeeds(config)
-    this.snapshotVersion = this.items.size === 0 ? 0 : 1
   }
 
   /**
-   * Read the whole inbox with per-item compare-and-set revisions.
+   * Read the whole open inbox with per-item compare-and-set revisions.
    * @returns the current snapshot.
    */
   @Remote('listSnapshot')
   listSnapshot(): WorkbenchSnapshot {
     return {
-      snapshotVersion: this.snapshotVersion,
-      items: [...this.items.values()].map(viewOf),
+      snapshotVersion: this.ctx.workbenchJournal.checkpoint().journalSeq,
+      items: this.ctx.attention.listOpen().map(viewOf),
     }
   }
 
   /**
-   * Confirm a batch of B-class items in one commit: every still-open
+   * Confirm a batch of B-class items in one pass: every still-open
    * revision-matching item resolves, and each target reports its own outcome.
    * @param request - actor plus the compare-and-set targets.
    * @returns per-item results and the post-commit snapshot version.
    */
   @Remote('confirmBatch')
-  confirmBatch(request: BatchConfirmRequest): BatchConfirmResponse {
-    resolveActor(request.actor)
+  async confirmBatch(request: BatchConfirmRequest): Promise<BatchConfirmResponse> {
+    const actor = resolveActor(request.actor)
+    const targets: ConfirmTarget[] = request.items.map(target => ({
+      itemId: AttentionItemId(String(target.itemId)),
+      expectedEntityRevision: resolveRevision(target.expectedEntityRevision, 'expectedEntityRevision'),
+    }))
+    const settled = await this.ctx.attention.confirmBatch(targets, actor, randomUUID())
     const changed: ChangedRow[] = []
-    const results: BatchConfirmItemResult[] = request.items.map((target): BatchConfirmItemResult => {
-      resolveRevision(target.expectedEntityRevision, 'expectedEntityRevision')
-      const result = this.transition(target.itemId, target.expectedEntityRevision, 'resolved')
-      if (result.outcome === 'withdrawn') return { itemId: target.itemId, outcome: 'withdrawn' }
-      if (result.outcome === 'resolved') changed.push(changedRowOf(result.item))
-      return { itemId: target.itemId, outcome: result.outcome, currentRevision: result.item.entityRevision }
+    const results: BatchConfirmItemResult[] = settled.map((row): BatchConfirmItemResult => {
+      if (row.outcome === 'resolved' && row.currentRevision !== undefined) {
+        changed.push({ itemId: WorkbenchItemIdValue(String(row.itemId)), status: 'resolved', entityRevision: row.currentRevision })
+      }
+      return {
+        itemId: WorkbenchItemIdValue(String(row.itemId)),
+        outcome: row.outcome,
+        ...(row.currentRevision === undefined ? {} : { currentRevision: row.currentRevision }),
+      }
     })
     return { snapshotVersion: this.commit(changed), results }
   }
@@ -185,19 +140,25 @@ export class WorkbenchHostService extends TypertRemoteService {
    * @returns the single-item outcome and the post-commit snapshot version.
    */
   @Remote('resolveDecision')
-  resolveDecision(request: ResolveDecisionRequest): ResolveDecisionResponse {
-    resolveActor(request.actor)
+  async resolveDecision(request: ResolveDecisionRequest): Promise<ResolveDecisionResponse> {
+    const actor = resolveActor(request.actor)
     const decision = resolveText(request.decision, 'decision')
-    resolveRevision(request.expectedEntityRevision, 'expectedEntityRevision')
-    const result = this.transition(request.itemId, request.expectedEntityRevision, 'resolved')
-    if (result.outcome === 'withdrawn') {
-      return { snapshotVersion: this.snapshotVersion, outcome: 'withdrawn' }
+    const revision = resolveRevision(request.expectedEntityRevision, 'expectedEntityRevision')
+    const settled = await this.ctx.attention.resolveDecision(
+      String(request.itemId),
+      revision,
+      decision,
+      actor,
+      randomUUID(),
+    )
+    const changed: ChangedRow[] = []
+    if (settled.outcome === 'resolved' && settled.currentRevision !== undefined) {
+      changed.push({ itemId: WorkbenchItemIdValue(String(request.itemId)), status: 'resolved', entityRevision: settled.currentRevision })
     }
-    if (result.outcome === 'resolved') result.item.decision = decision
     return {
-      snapshotVersion: this.commit(result.outcome === 'resolved' ? [changedRowOf(result.item)] : []),
-      outcome: result.outcome,
-      currentRevision: result.item.entityRevision,
+      snapshotVersion: this.commit(changed),
+      outcome: settled.outcome,
+      ...(settled.currentRevision === undefined ? {} : { currentRevision: settled.currentRevision }),
     }
   }
 
@@ -208,44 +169,37 @@ export class WorkbenchHostService extends TypertRemoteService {
    * @returns the single-item outcome and the post-commit snapshot version.
    */
   @Remote('invalidateItem')
-  invalidateItem(request: InvalidateItemRequest): InvalidateItemResponse {
-    resolveActor(request.actor)
-    resolveText(request.reason, 'reason')
-    resolveRevision(request.expectedEntityRevision, 'expectedEntityRevision')
-    const result = this.transition(request.itemId, request.expectedEntityRevision, 'invalidated')
-    if (result.outcome === 'withdrawn') {
-      return { snapshotVersion: this.snapshotVersion, outcome: 'withdrawn' }
+  async invalidateItem(request: InvalidateItemRequest): Promise<InvalidateItemResponse> {
+    const actor = resolveActor(request.actor)
+    const reason = resolveText(request.reason, 'reason')
+    const revision = resolveRevision(request.expectedEntityRevision, 'expectedEntityRevision')
+    const settled = await this.ctx.attention.invalidateItem(
+      String(request.itemId),
+      revision,
+      reason,
+      actor,
+      randomUUID(),
+    )
+    const changed: ChangedRow[] = []
+    if (settled.outcome === 'invalidated' && settled.currentRevision !== undefined) {
+      changed.push({ itemId: WorkbenchItemIdValue(String(request.itemId)), status: 'invalidated', entityRevision: settled.currentRevision })
     }
     return {
-      snapshotVersion: this.commit(result.outcome === 'invalidated' ? [changedRowOf(result.item)] : []),
-      outcome: result.outcome,
-      currentRevision: result.item.entityRevision,
+      snapshotVersion: this.commit(changed),
+      outcome: settled.outcome,
+      ...(settled.currentRevision === undefined ? {} : { currentRevision: settled.currentRevision }),
     }
   }
 
-  /** Apply one compare-and-set transition against the mutable store. */
-  private transition<Next extends 'resolved' | 'invalidated'>(
-    itemId: WorkbenchItemId,
-    expectedEntityRevision: number,
-    next: Next,
-  ): TransitionResult<Next> {
-    const stored = this.items.get(itemId)
-    if (stored === undefined) return { outcome: 'withdrawn' }
-    if (stored.status === 'resolved') return { outcome: 'already-resolved', item: stored }
-    if (stored.status === 'invalidated') return { outcome: 'stale', item: stored }
-    if (stored.entityRevision !== expectedEntityRevision) return { outcome: 'conflict', item: stored }
-    stored.status = next
-    stored.entityRevision += 1
-    return { outcome: next, item: stored }
-  }
-
-  /** Bump the snapshot version once per command and push the change set. */
+  /**
+   * Resolve the snapshot version from the journal checkpoint and push the
+   * change set when it is non-empty. Synchronous listener failures are
+   * contained and logged so a committed change never looks failed.
+   */
   private commit(changed: readonly ChangedRow[]): number {
-    if (changed.length === 0) return this.snapshotVersion
-    this.snapshotVersion += 1
-    const update: WorkbenchAttentionUpdate = { snapshotVersion: this.snapshotVersion, changed }
-    // Contained fan-out, mirroring the credentials/settings commit events: a
-    // broken observer never makes a committed inbox change look failed.
+    const snapshotVersion = this.ctx.workbenchJournal.checkpoint().journalSeq
+    if (changed.length === 0) return snapshotVersion
+    const update: WorkbenchAttentionUpdate = { snapshotVersion, changed }
     for (const listener of this.ctx.events.dispatch('emit', ['workbench/attention-updated', update])) {
       try {
         listener(update)
@@ -253,13 +207,8 @@ export class WorkbenchHostService extends TypertRemoteService {
         this.ctx.logger.warn('workbench-host: an attention-updated listener failed: %s', error)
       }
     }
-    return this.snapshotVersion
+    return snapshotVersion
   }
 }
 
 export default WorkbenchHostService
-
-/** Project one stored item into a push-event change row. */
-function changedRowOf(item: StoredItem): ChangedRow {
-  return { itemId: item.itemId, status: item.status, entityRevision: item.entityRevision }
-}

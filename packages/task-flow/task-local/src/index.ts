@@ -14,7 +14,7 @@ import { TaskError, TaskHandle } from '@deepseek-ai/dsh-task'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { JournalPayload } from '@deepseek-ai/dsh-workbench-journal/types'
 import '@deepseek-ai/dsh-workbench-journal'
-import '@deepseek-ai/dsh-deliverable-minimal'
+import '@deepseek-ai/dsh-deliverable-local'
 import { taskFactKey, taskLocalDomainSpec } from './spec.ts'
 import type { TaskLocalFactKind } from './types.ts'
 import type {
@@ -182,6 +182,38 @@ export class LocalTaskService extends TaskHandle {
     return Promise.resolve([...this.require(this.gateResults).get(submissionId) ?? []])
   }
 
+  protected async staleGateChecks(
+    submissionId: SubmissionId,
+    checkIds: readonly string[],
+    provenance: WriteProvenance,
+  ): Promise<GateCheckResult[]> {
+    const submission = this.require(this.submissions).get(submissionId)
+    if (submission === undefined) {
+      throw new TaskError('not-found', 'submission of a gate check is not stored')
+    }
+    const wanted = new Set(checkIds)
+    const existing = [...this.require(this.gateResults).get(submissionId) ?? []]
+    const staled: Array<{ result: GateCheckResult; position: number }> = []
+    const next = existing.map((result, index) => {
+      if (!wanted.has(result.checkId) || result.stale === true) return result
+      const annotated: GateCheckResult = { ...result, stale: true }
+      staled.push({ result: annotated, position: index + 1 })
+      return annotated
+    })
+    for (const entry of staled) {
+      await this.appendFact({
+        kind: 'gate-check/staled',
+        taskId: submission.taskId,
+        entityId: submissionId,
+        entityRevision: entry.position,
+        provenance,
+        payload: entry.result,
+      })
+    }
+    if (staled.length > 0) await this.require(this.gateResults).put(submissionId, next)
+    return staled.map(entry => entry.result)
+  }
+
   protected async saveGateResult(result: GateCheckResult, provenance: WriteProvenance): Promise<void> {
     const submission = this.require(this.submissions).get(result.submissionId)
     if (submission === undefined) {
@@ -218,12 +250,16 @@ export class LocalTaskService extends TaskHandle {
     return Promise.resolve({ ...environment, inputsCurrent, outputsValid })
   }
 
+  /** At acceptance the write chain owns both durable registrations: the run's input versions and the output versions' dependency edges. */
   protected override async onSubmissionAccepted(submission: PhaseSubmission): Promise<void> {
     if (submission.inputVersions.length === 0) return
     await this.ctx.deliverables.recordPhaseInputs(
       submission.phaseRunId,
       submission.inputVersions.map(ref => ref.versionId),
     )
+    for (const output of submission.outputVersions) {
+      await this.ctx.deliverables.registerVersionDependencies(output.versionId, submission.inputVersions)
+    }
   }
 
   /**

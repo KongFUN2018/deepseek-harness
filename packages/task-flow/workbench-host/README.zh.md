@@ -2,46 +2,42 @@
 
 [English](README.md) | 中文
 
-工作台注意力通道宿主服务：一个内存版、带版本号的注意力收件箱，用于先行验证宿主-客户端通道切片——快照读取、compare-and-set Remote 命令、`workbench/attention-updated` 转发推送事件——在 M1 任务引擎落地持久 journal 之前。
+工作台注意力通道宿主服务：M4 持久注意力收件箱（`ctx.attention`）之上的客户端安全投影。快照读取把 open 注意力条目投影为 wire 视图；确认、决策、失效委托给注意力服务的乐观并发命令，因此 stale、withdrawn、resolved 或版本冲突的条目永远不会被静默确认。`workbench/attention-updated` 事件仍在提交变更后广播，快照版本取日志检查点 seq。
 
-## Config
+## 服务契约
 
-- `seedItems`（默认 `[]`）：启动时注入的注意力条目；id 必须唯一，kind 为 `b-confirm` 或 `c-decision`，title 非空。
+`ctx.workbenchHost` 是绑定在 `workbenchHost` wire 命名空间上的 `TypertRemoteService`。四个 `@Remote` 方法只接收纯 wire 值（不做会话查询），因此收件箱天然跨会话：
 
-## Service contract
+- `listSnapshot()` —— 全量 open 收件箱读取，含 `snapshotVersion`（日志检查点 seq）与逐项 `entityRevision`。仅投影 open 条目；resolved 与 invalidated 条目移出收件箱。
+- `confirmBatch(request)` —— 单趟解析每个仍 open 且 revision 匹配的 B 类条目；每个 target 返回 `resolved | conflict | stale | withdrawn | already-resolved`，条目存在时附 `currentRevision`。部分提交是契约，不是回滚。
+- `resolveDecision(request)` —— 单条 C 类决策写入，记录决策文本；文本映射为条目上的 `optionId`，不在 options 内的文本抛 invalid-argument 错误而非静默确认。C 类从不批量。
+- `invalidateItem(request)` —— 上游失效传播触发；之后对该条目的确认返回 `stale`。
 
-`ctx.workbenchHost` 是绑定 `workbenchHost` wire 命名空间的 `TypertRemoteService`。四个 `@Remote` 方法只收发普通 wire 值（不做会话查找），因此收件箱天然跨会话：
+每次提交的变更广播 `workbench/attention-updated` 并携带变更行；监听器失败被包含并记录日志。
 
-- `listSnapshot()` —— 全量读取收件箱，携带 `snapshotVersion` 与逐条 `entityRevision`。
-- `confirmBatch(request)` —— 一次提交解决所有仍处 open 且版本匹配的 B 类条目；每个目标各自汇报 `resolved | conflict | stale | withdrawn | already-resolved`，条目存在时附 `currentRevision`。部分提交即契约本身，不做回滚。
-- `resolveDecision(request)` —— 单条 C 类条目写入，记录决策文本；C 类条目永不批量。
-- `invalidateItem(request)` —— 上游失效触发器；之后对该条目的确认会汇报 `stale`。
+## 扩展点
 
-每个产生提交的命令将 `snapshotVersion` 递增一次，并携带变更行发出 `workbench/attention-updated`；监听器失败被容纳并记录日志。
+- `workbench/attention-updated` Cordis 事件（在 `@deepseek-ai/dsh-api-remotes` 中 allowlist）是推送通道；消费者在 Client 环境用 `ctx.remote.$on('workbench/attention-updated', ...)` 订阅。
+- `ctx.attention` 是持久权威；宿主服务只做投影与委托，因此新的 attention kind 或状态会通过共享 wire 词汇在此浮现。
 
-## Extension points
-
-- `workbench/attention-updated` Cordis 事件（已列入 `@deepseek-ai/dsh-api-remotes` 白名单）是推送通道；Client 环境用 `ctx.remote.$on('workbench/attention-updated', …)` 订阅。
-- M1 任务引擎将以持久 journal 替换内存存储，Remote 面保持不变。
-
-## Model Experience
+## 模型体验
 
 ### 工作台注意力收件箱命令
 
-#### What the model sees
+#### 模型看到什么
 
-Nothing. `ctx.workbenchHost` Remote 面仅服务浏览器工作台 UI；任何工具、prompt 分节或会话事件都不会把收件箱暴露给模型请求。
+什么也看不到。`ctx.workbenchHost` Remote 面只服务浏览器工作台 UI；没有工具、提示段或会话事件把收件箱暴露给模型请求。
 
-#### Token effect
+#### Token 影响
 
-None. 命令与快照走 RPC 载体，不在模型请求路径上。
+无。命令与快照走 RPC 载体，不在模型请求路径内。
 
-#### KV Cache effect
+#### KV Cache 影响
 
-None. 收件箱从不进入 prompt，本包不会增加、删除或重排任何前缀。
+无。收件箱从不进入提示，因此本包不会增删或重排任何前缀。
 
-## Known Limitations and Deferred Work
+## 已知限制与延后工作
 
-- 存储为内存态并由 config 播种；重启即丢。M1 journal 成为权威存储后，`src/invariant.ts` 中暂挂的 append-only 不变式随之安装。
-- 批量为逐条目 first-write-wins，无服务端排队；被拒绝的目标返回 `currentRevision` 供立即重试，而非持锁等待。
-- 推送事件携带变更行而非全量快照；重连再同步（游标窗口、`resnapshot-required`）推迟到 M1 通道客户端，尚未上wire。
+- 快照仅投影 open 条目；已决策文本不随快照携带，因为条目已离开收件箱。wire `decision` 字段保留给 M4 通道客户端，它改由推送事件追踪已决 C 类条目。
+- 批量按条目首写获胜，无服务端排队；被拒绝的 target 返回 `currentRevision` 供立即重试，而非持锁。
+- 推送事件只携带变更行而非整份快照；断线重连重同步（游标窗口、`resnapshot-required`）延后到 M4 通道客户端，尚未上 wire。

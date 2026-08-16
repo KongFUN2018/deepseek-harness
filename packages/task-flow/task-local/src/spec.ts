@@ -67,6 +67,7 @@ export const phaseRunRecordSchema = z.object({
   ]),
   revision: z.number().int().min(1),
   activeSubmissionId: idString.optional(),
+  sessionId: z.string().optional(),
   schedulingFrozen: z.boolean().optional(),
 }) as unknown as z.ZodType<PhaseRunRecord>
 
@@ -104,6 +105,8 @@ export const gateResultsSchema = z.array(z.object({
   passed: z.boolean(),
   detail: z.string().optional(),
   recordedAt: z.number().int().min(1),
+  uncoveredScope: z.array(z.string()).optional(),
+  evidenceRefs: z.array(z.string()).optional(),
 })) as unknown as z.ZodType<GateCheckResult[]>
 
 /** The task-local domain: identity, format version, and the entity tables. */

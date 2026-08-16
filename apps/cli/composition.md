@@ -104,8 +104,8 @@ flowchart LR
   cfg --> plugin_dsh_base_task
   plugin_dsh_base_workbench_journal["workbench-journal<br/>@deepseek-ai/dsh-workbench-journal"]
   cfg --> plugin_dsh_base_workbench_journal
-  plugin_dsh_base_deliverable_minimal["deliverable-minimal<br/>@deepseek-ai/dsh-deliverable-minimal"]
-  cfg --> plugin_dsh_base_deliverable_minimal
+  plugin_dsh_base_deliverable_local["deliverable-local<br/>@deepseek-ai/dsh-deliverable-local"]
+  cfg --> plugin_dsh_base_deliverable_local
   plugin_dsh_base_task_local["task-local<br/>@deepseek-ai/dsh-task-local"]
   cfg --> plugin_dsh_base_task_local
   plugin_dsh_base_recipe_engine_core["recipe-engine-core<br/>@deepseek-ai/dsh-recipe-engine-core"]
@@ -230,7 +230,7 @@ flowchart LR
 | `recipe` | `@deepseek-ai/dsh-recipe` |
 | `task` | `@deepseek-ai/dsh-task` |
 | `workbench-journal` | `@deepseek-ai/dsh-workbench-journal` |
-| `deliverable-minimal` | `@deepseek-ai/dsh-deliverable-minimal` |
+| `deliverable-local` | `@deepseek-ai/dsh-deliverable-local` |
 | `task-local` | `@deepseek-ai/dsh-task-local` |
 | `recipe-engine-core` | `@deepseek-ai/dsh-recipe-engine-core` |
 | `goal-round-driver` | `@deepseek-ai/dsh-goal-round-driver` |

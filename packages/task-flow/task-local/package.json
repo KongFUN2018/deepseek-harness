@@ -38,7 +38,7 @@
   "license": "MIT",
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-deliverable-minimal": "workspace:^",
+    "@deepseek-ai/dsh-deliverable-local": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-storage-domain": "workspace:^",
     "@deepseek-ai/dsh-task": "workspace:^",
@@ -51,7 +51,7 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-app-boot": "workspace:^",
-    "@deepseek-ai/dsh-deliverable-minimal": "workspace:^",
+    "@deepseek-ai/dsh-deliverable-local": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-recipe": "workspace:^",
     "@deepseek-ai/dsh-storage": "workspace:^",

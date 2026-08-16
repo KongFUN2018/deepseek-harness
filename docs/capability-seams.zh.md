@@ -120,7 +120,7 @@ flowchart LR
   svc_tasks["ctx.tasks<br/>Task-flow task domain service"]
   pkg_workbench_journal["workbench-journal"]
   svc_workbenchJournal["ctx.workbenchJournal<br/>Task-flow append-only workbench journal"]
-  pkg_deliverable_minimal["deliverable-minimal"]
+  pkg_deliverable_local["deliverable-local"]
   svc_deliverables["ctx.deliverables<br/>Task-flow minimal deliverable versions"]
   pkg_task_local["task-local"]
   pkg_recipe_engine_core["recipe-engine-core"]
@@ -235,7 +235,7 @@ flowchart LR
   pkg_cordis_host_runner --> svc_dynamicCordisRunner
   pkg_credentials --> svc_credentials
   pkg_credentials_local --> svc_credentials
-  pkg_deliverable_minimal --> svc_deliverables
+  pkg_deliverable_local --> svc_deliverables
   pkg_directory_picker --> svc_directoryPicker
   pkg_directory_picker_browse --> svc_directoryPicker
   pkg_directory_picker_native --> svc_directoryPicker
@@ -419,7 +419,7 @@ flowchart LR
   svc_systemPrompt --> pkg_tool_web
   svc_systemPrompt --> pkg_tools
   svc_tasks --> pkg_api_remotes
-  svc_tasks --> pkg_deliverable_minimal
+  svc_tasks --> pkg_deliverable_local
   svc_tasks --> pkg_storage_domain
   svc_tasks --> pkg_workbench_journal
   svc_terminals --> pkg_tool_terminal
@@ -489,8 +489,8 @@ flowchart LR
 | `ctx.recipes` | `core` | [`recipe`](../packages/task-flow/recipe) | - | [`api-remotes`](../packages/api/remotes) | - | 注册经验证、内容寻址的 Recipe revision；任务创建固定身份，运行路径经 getPinned 读取并校验哈希。 |
 | `ctx.tasks` | `core` | [`task`](../packages/task-flow/task) | - | [`api-remotes`](../packages/api/remotes) | - | 抽象 Service Definition，拥有钉定配方的 task/run/phase-run 投影与受守卫迁移；provider 在持久 journal 之后实现存储钩子（task-local，M1），引擎驱动受理链。 |
 | `ctx.workbenchJournal` | `core` | [`workbench-journal`](../packages/task-flow/workbench-journal) | - | [`storage-domain`](../packages/storage/storage-domain) | - | 拥有一个 storageDomain 单元作为持久事实源；append 分配单调序列号并作为提交点，checkpoint/replay 在恢复时重建 task-flow 投影。 |
-| `ctx.deliverables` | `core` | [`deliverable-minimal`](../packages/task-flow/deliverable-minimal) | - | [`storage-domain`](../packages/storage/storage-domain) | - | 基于单个 storageDomain 单元拥有每产物不可变版本链；过时写拒绝、当前输入列表与下游失效服务于任务写链与客户端任务看板。 |
-| `ctx.tasks` | `core` | [`task-local`](../packages/task-flow/task-local) | - | [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal), [`deliverable-minimal`](../packages/task-flow/deliverable-minimal) | - | 在单个 storageDomain 单元上实现 TaskHandle 存储钩子；每次写入把 journal 事实作为提交点追加，submission 受理在任务写链内校验产物引用。 |
+| `ctx.deliverables` | `core` | [`deliverable-local`](../packages/task-flow/deliverable-local) | - | [`storage-domain`](../packages/storage/storage-domain) | - | 基于单个 storageDomain 单元拥有每产物不可变版本链；过时写拒绝、当前输入列表与下游失效服务于任务写链与客户端任务看板。 |
+| `ctx.tasks` | `core` | [`task-local`](../packages/task-flow/task-local) | - | [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal), [`deliverable-local`](../packages/task-flow/deliverable-local) | - | 在单个 storageDomain 单元上实现 TaskHandle 存储钩子；每次写入把 journal 事实作为提交点追加，submission 受理在任务写链内校验产物引用。 |
 | `ctx.recipeEngine` | `core` | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | `tasks`, `recipes`, `agents`, `goals`, [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal) | - | 调度钉定配方的阶段运行并经由贡献的 phase executor 驱动提交—门检—通过链；针对 workbench journal 协调暂停、取消与重启恢复。 |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | 拥有一个共享的 E2B SDK 句柄、远程工作目录和最终沙箱处置，使两个基础 E2B 提供方处于同一个 Linux 运行时中。 |
 | `ctx.subprocess` | `seam` | [`subprocess`](../packages/subprocess/subprocess) | [`subprocess-local`](../packages/subprocess/subprocess-local), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`terminal-bash`](../packages/terminal/terminal-bash), [`lsp-stdio`](../packages/lsp/lsp-stdio), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | - | Bash 执行器、PTY shell 后端、LSP Host，以及进程外 ACP、Codex 和 Claude Code subagent 后端都通过 ctx.subprocess 执行 spawn；该服务负责进程坐标、进程树／会话生命周期、stdio 处置、终端机制和 kill 升级。 |

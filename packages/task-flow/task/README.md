@@ -8,7 +8,7 @@ Task-flow task Service Definition (`ctx.tasks`): pinned-recipe task creation, gu
 
 `ctx.tasks` is an abstract `TypertRemoteService` bound to the `tasks` wire namespace; a provider subclass implements the protected storage hooks inside its transaction boundary. Mutating commands take a `TaskMutationContext` (actor, reason, `expectedRevision`, idempotency key) and fail with `stale-revision` when the stored revision moved.
 
-Task commands: `createTask` (pins the recipe's latest registered revision; idempotency-key replay returns the original), `startTask`, `requestPause`/`settlePause`, `resume`, `requestCancel`/`settleCancel`, `failTask`, `completeTask` (guard: every phase run of the current run passed), and `createTaskRun` (opens a run and makes it current). Phase-run commands: `createPhaseRun`, `startPhaseRun`, `recordSubmission`, `startGate`, `recordGateCheck`, `markPhasePassed`, `markPhaseFailed`, `cancelPhaseRun`. Queries: `getTask`, `listTasks`, `getPhaseRun`, `getSubmission`, `listGateResults`.
+Task commands: `createTask` (pins the recipe's latest registered revision; idempotency-key replay returns the original), `startTask`, `requestPause`/`settlePause`, `resume`, `requestCancel`/`settleCancel`, `failTask`, `completeTask` (guard: every phase run of the current run passed), and `createTaskRun` (opens a run and makes it current). Phase-run commands: `createPhaseRun`, `startPhaseRun`, `recordSubmission`, `startGate`, `recordGateCheck`, `markPhasePassed`, `markPhaseFailed`, `cancelPhaseRun`, plus the M3 awaiting commands `markPhaseAwaitingInput`, `markPhaseAwaitingDecision`, `resumePhaseFromAwaiting`, and `recordPhaseSession`. Queries: `getTask`, `listTasks`, `getPhaseRun`, `getSubmission`, `listGateResults`.
 
 `recordSubmission` accepts one immutable `PhaseSubmission` plus caller-computed `SubmissionEnvironmentFacts` (source-log persistence, input currency, output validity). Acceptance is the pure `acceptSubmission` check: identity wiring (task/run/phase-run/phase-id), pinned-recipe identity and hash against the registry, environment facts, and idempotency-key replay; a rejection throws `submission-rejected` with every problem listed. The accepted submission moves its phase run to `submitted` and becomes its `activeSubmissionId`.
 
@@ -38,6 +38,5 @@ None. Task records never enter a prompt, so no prefix is added, removed, or reor
 
 ## Known Limitations and Deferred Work
 
-- No shipped provider: the abstract storage hooks are implemented by test fakes and the e2e driver until `task-local` lands durable journal storage.
 - Gate results are stored as recorded; judging check verdicts against the pinned recipe's gate checks (the pass/fail gate decision) belongs to the engine, not this package.
-- `schedulingFrozen` and the pause/cancel quiescence choreography that sets it are declared on `PhaseRunRecord` but no M1 command writes it yet; the engine's pause-cancel path owns it.
+- `schedulingFrozen` is declared on `PhaseRunRecord` but no M1 command writes it; the M2 edit-lock service owns setting it through new task commands (immediate scheduling freeze while a lease covers a consumed version).

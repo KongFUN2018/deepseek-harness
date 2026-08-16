@@ -38,6 +38,5 @@
 
 ## Known Limitations and Deferred Work
 
-- 无随包 provider：在 `task-local` 落地持久 journal 存储之前，抽象存储钩子由测试替身与 e2e 驱动实现。
 - 门检结果按记录原样存储；对照钉定配方的门检判定（通过/失败门决策）属于引擎，不属于本包。
-- `schedulingFrozen` 以及设置它的暂停/取消静默编排已声明在 `PhaseRunRecord` 上，但尚无 M1 命令写入；由引擎的 pause-cancel 路径拥有。
+- `schedulingFrozen` 已声明在 `PhaseRunRecord` 上，但尚无 M1 命令写入；M2 的 edit-lock 服务经新增任务命令拥有其写入（租约覆盖被消费版本期间立即冻结调度）。

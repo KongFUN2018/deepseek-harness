@@ -15,6 +15,7 @@ export const EMPTY_TEMPLATE: RecipePayload = {
   phases: [
     {
       phaseId: 'main',
+      kind: 'default',
       goal: 'Execute the task and submit the phase output.',
       inputs: [],
       outputs: ['main deliverable'],

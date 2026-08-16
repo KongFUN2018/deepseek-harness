@@ -23,8 +23,8 @@ The engine is host-internal (a plain `Service`, not `@Remote`-driven) and mounts
   name: '@deepseek-ai/dsh-recipe'
 - id: workbench-journal
   name: '@deepseek-ai/dsh-workbench-journal'
-- id: deliverable-minimal
-  name: '@deepseek-ai/dsh-deliverable-minimal'
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
 - id: task-local
   name: '@deepseek-ai/dsh-task-local'
 - id: agent
@@ -43,7 +43,7 @@ The engine is host-internal (a plain `Service`, not `@Remote`-driven) and mounts
 
 ### Scheduling loop
 
-A `task/updated` listener triggers a per-task serialized loop. Each pass re-reads the task: terminal tasks dispose their phase sessions; `pausing`/`cancelling` wait for in-flight execution, then settle after cancelling active phase runs; a `running` task resolves its pinned recipe (hash mismatch poisons the task), checks the recipe shape (an undeclared phase or a non-A gate check poisons it), and advances the current run — creating the task run, resolving exactly one active phase run (crash-window orphans beyond the newest are superseded), then walking it through `startPhaseRun` → executor → `recordSubmission` → gate → `markPhasePassed`, completing the task when the last phase passes. With no executor registered the phase stays `running` and every wake retries with a warn log.
+A `task/updated` listener triggers a per-task serialized loop. Each pass re-reads the task: terminal tasks dispose their phase sessions; `pausing`/`cancelling` wait for in-flight execution, then settle after cancelling active phase runs; a `running` task resolves its pinned recipe (hash mismatch poisons the task), checks the recipe shape (an undeclared phase poisons it), and advances the current run — creating the task run, resolving exactly one active phase run (crash-window orphans beyond the newest are superseded), then walking it through `startPhaseRun` → executor → `recordSubmission` → gate. A checks are evaluated and recorded with `uncoveredScope` + `evidenceRefs`; B/C checks carry no machine verdict, so the gate service advances the run to `awaiting-decision` and the engine waits; an all-A run settles with `markPhasePassed`, completing the task when the last phase passes. With no executor registered the phase stays `running` and every wake retries with a warn log.
 
 ### Pause, cancel, and quiescence
 
@@ -75,7 +75,7 @@ None. The engine mutates no prompt; no prefix is added, removed, or reordered by
 
 ## Known Limitations and Deferred Work
 
-- **Single executor slot.** `registerExecutor` holds exactly one executor for all phases; routing phase kinds to different executors lands with the M2 executor registry.
+- **Single executor slot.** `registerExecutor` holds exactly one executor for all phases; per-kind routing ships in `@deepseek-ai/dsh-recipe-multiphase`, which registers one aggregating executor into this slot.
 - **Keyless sessions carry no session log.** Without a registered agent factory the engine degrades to a synthetic session id, so phase provenance rests entirely on the executor's reported `sourceSeqRange`.
 - **Poisoned tasks stay poisoned.** A recipe-unsupported or recovery-mismatch poison logs an error and stops scheduling; M1 has no un-poison command.
 - **No cross-host scheduling.** The per-task chain, in-flight map, and session handles are host-local; multi-host coordination is out of M1 scope.

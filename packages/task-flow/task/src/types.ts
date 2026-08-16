@@ -91,7 +91,9 @@ export interface PhaseRunRecord {
   readonly state: PhaseRunState
   readonly revision: number
   readonly activeSubmissionId?: SubmissionId
-  /** Set while a task pause is in flight; cleared on resume. */
+  /** The phase-session id the engine opened for this run; clarification recovery uses it. */
+  readonly sessionId?: string
+  /** Declared for the M2 edit-lock immediate scheduling freeze; no M1 command writes it. */
   readonly schedulingFrozen?: boolean
 }
 
@@ -144,6 +146,12 @@ export interface GateCheckResult {
   readonly passed: boolean
   readonly detail?: string
   readonly recordedAt: number
+  /** Set by impact propagation when the closure covers this verdict; a staled verdict supports no pass decision. */
+  readonly stale?: boolean
+  /** Machine-uncovered scope recorded with the verdict (M3). */
+  readonly uncoveredScope?: readonly string[]
+  /** Evidence references backing the verdict (M3). */
+  readonly evidenceRefs?: readonly string[]
 }
 
 /** Provenance threaded into every durable provider write. */

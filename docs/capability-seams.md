@@ -118,7 +118,7 @@ flowchart LR
   svc_tasks["ctx.tasks<br/>Task-flow task domain service"]
   pkg_workbench_journal["workbench-journal"]
   svc_workbenchJournal["ctx.workbenchJournal<br/>Task-flow append-only workbench journal"]
-  pkg_deliverable_minimal["deliverable-minimal"]
+  pkg_deliverable_local["deliverable-local"]
   svc_deliverables["ctx.deliverables<br/>Task-flow minimal deliverable versions"]
   pkg_task_local["task-local"]
   pkg_recipe_engine_core["recipe-engine-core"]
@@ -233,7 +233,7 @@ flowchart LR
   pkg_cordis_host_runner --> svc_dynamicCordisRunner
   pkg_credentials --> svc_credentials
   pkg_credentials_local --> svc_credentials
-  pkg_deliverable_minimal --> svc_deliverables
+  pkg_deliverable_local --> svc_deliverables
   pkg_directory_picker --> svc_directoryPicker
   pkg_directory_picker_browse --> svc_directoryPicker
   pkg_directory_picker_native --> svc_directoryPicker
@@ -417,7 +417,7 @@ flowchart LR
   svc_systemPrompt --> pkg_tool_web
   svc_systemPrompt --> pkg_tools
   svc_tasks --> pkg_api_remotes
-  svc_tasks --> pkg_deliverable_minimal
+  svc_tasks --> pkg_deliverable_local
   svc_tasks --> pkg_storage_domain
   svc_tasks --> pkg_workbench_journal
   svc_terminals --> pkg_tool_terminal
@@ -487,8 +487,8 @@ flowchart LR
 | `ctx.recipes` | `core` | [`recipe`](../packages/task-flow/recipe) | - | [`api-remotes`](../packages/api/remotes) | - | Registers validated content-addressed recipe revisions; task creation pins an identity and running paths read getPinned with hash verification. |
 | `ctx.tasks` | `core` | [`task`](../packages/task-flow/task) | - | [`api-remotes`](../packages/api/remotes) | - | Abstract Service Definition owning pinned-recipe task/run/phase-run projections and guarded transitions; providers implement the storage hooks behind a durable journal (task-local, M1) and the engine drives the acceptance chain. |
 | `ctx.workbenchJournal` | `core` | [`workbench-journal`](../packages/task-flow/workbench-journal) | - | [`storage-domain`](../packages/storage/storage-domain) | - | Owns one storageDomain unit as the durable fact source; append assigns the monotonic sequence and is the commit point, while checkpoint/replay rebuild task-flow projections at recovery. |
-| `ctx.deliverables` | `core` | [`deliverable-minimal`](../packages/task-flow/deliverable-minimal) | - | [`storage-domain`](../packages/storage/storage-domain) | - | Owns immutable version chains per deliverable over one storageDomain unit; stale-write rejection, current-input listing, and downstream invalidation serve the task write chain and the client task board. |
-| `ctx.tasks` | `core` | [`task-local`](../packages/task-flow/task-local) | - | [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal), [`deliverable-minimal`](../packages/task-flow/deliverable-minimal) | - | Implements the TaskHandle storage hooks over one storageDomain unit; every write appends its journal fact as the commit point, and submission acceptance validates deliverable refs in the task write chain. |
+| `ctx.deliverables` | `core` | [`deliverable-local`](../packages/task-flow/deliverable-local) | - | [`storage-domain`](../packages/storage/storage-domain) | - | Owns immutable version chains per deliverable over one storageDomain unit; stale-write rejection, current-input listing, and downstream invalidation serve the task write chain and the client task board. |
+| `ctx.tasks` | `core` | [`task-local`](../packages/task-flow/task-local) | - | [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal), [`deliverable-local`](../packages/task-flow/deliverable-local) | - | Implements the TaskHandle storage hooks over one storageDomain unit; every write appends its journal fact as the commit point, and submission acceptance validates deliverable refs in the task write chain. |
 | `ctx.recipeEngine` | `core` | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | `tasks`, `recipes`, `agents`, `goals`, [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal) | - | Schedules pinned-recipe phase runs and drives the submission-gate-pass chain through a contributed phase executor, reconciling pause, cancel, and restart recovery against the workbench journal. |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | Owns one shared E2B SDK handle, remote working directory, and final sandbox disposition so both fundamental E2B providers inhabit the same Linux runtime. |
 | `ctx.subprocess` | `seam` | [`subprocess`](../packages/subprocess/subprocess) | [`subprocess-local`](../packages/subprocess/subprocess-local), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`terminal-bash`](../packages/terminal/terminal-bash), [`lsp-stdio`](../packages/lsp/lsp-stdio), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | - | The bash executors, the PTY shell backend, the LSP host, and the out-of-process ACP, Codex, and Claude Code subagent backends spawn through ctx.subprocess; the service owns process coordinates, tree/session lifetime, stdio dispositions, terminal mechanics, and kill escalation. |

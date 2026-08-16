@@ -251,6 +251,15 @@
     - id: ui-task-board
       name: '@deepseek-ai/dsh-client-ui-task-board'
 
+    # Task-flow attention inbox: decision panel at the sidebar foot, over the
+    # workbench-host/workbench-host-stream Remotes with attention-updated folds.
+    - id: ui-attention-inbox
+      name: '@deepseek-ai/dsh-client-ui-attention-inbox'
+
+    # Task-flow detail: per-task projection reader over the tasks Remote.
+    - id: ui-task-detail
+      name: '@deepseek-ai/dsh-client-ui-task-detail'
+
     # Model selection: the /model popupSelect + composer seat over session.models.
     - id: ui-model-selection
       name: '@deepseek-ai/dsh-client-ui-model-selection'

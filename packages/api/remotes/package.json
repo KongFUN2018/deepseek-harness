@@ -75,9 +75,10 @@
     "@deepseek-ai/dsh-settings": "workspace:^",
     "@deepseek-ai/dsh-typert-registry": "workspace:^",
     "@deepseek-ai/dsh-workbench-host": "workspace:^",
+    "@deepseek-ai/dsh-workbench-host-stream": "workspace:^",
     "@deepseek-ai/dsh-recipe": "workspace:^",
     "@deepseek-ai/dsh-task": "workspace:^",
-    "@deepseek-ai/dsh-deliverable-minimal": "workspace:^"
+    "@deepseek-ai/dsh-deliverable-local": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-agent": "workspace:^",
@@ -96,9 +97,10 @@
     "@deepseek-ai/dsh-settings": "workspace:^",
     "@deepseek-ai/dsh-typert-registry": "workspace:^",
     "@deepseek-ai/dsh-workbench-host": "workspace:^",
+    "@deepseek-ai/dsh-workbench-host-stream": "workspace:^",
     "@deepseek-ai/dsh-recipe": "workspace:^",
     "@deepseek-ai/dsh-task": "workspace:^",
-    "@deepseek-ai/dsh-deliverable-minimal": "workspace:^",
+    "@deepseek-ai/dsh-deliverable-local": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^"
   }
 }

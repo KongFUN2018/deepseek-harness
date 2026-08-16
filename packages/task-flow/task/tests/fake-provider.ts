@@ -69,6 +69,22 @@ export class FakeTaskProvider extends TaskHandle {
     return this.gateResults.filter(result => result.submissionId === submissionId)
   }
 
+  protected async staleGateChecks(
+    submissionId: SubmissionId,
+    checkIds: readonly string[],
+    _provenance: WriteProvenance,
+  ): Promise<GateCheckResult[]> {
+    const wanted = new Set(checkIds)
+    const staled: GateCheckResult[] = []
+    for (const result of this.gateResults) {
+      if (result.submissionId !== submissionId || !wanted.has(result.checkId) || result.stale === true) continue
+      const next: GateCheckResult = { ...result, stale: true }
+      this.gateResults[this.gateResults.indexOf(result)] = next
+      staled.push(next)
+    }
+    return staled
+  }
+
   protected async saveGateResult(result: GateCheckResult, _provenance: WriteProvenance): Promise<void> {
     this.gateResults.push(result)
   }

@@ -19,9 +19,11 @@ export interface RecipeIdentity {
 /** Gate class of one check: machine-blocking, batch confirmation, or single decision. */
 export type RecipeCheckKind = 'A' | 'B' | 'C'
 
-/** One declared phase: goal, inputs, outputs, and human-readable submission criteria. */
+/** One declared phase: kind, goal, inputs, outputs, and human-readable submission criteria. */
 export interface RecipePhaseSpec {
   readonly phaseId: string
+  /** Cross-recipe phase kind; the executor registry routes phases by it (M3). */
+  readonly kind: string
   readonly goal: string
   readonly inputs: readonly string[]
   readonly outputs: readonly string[]

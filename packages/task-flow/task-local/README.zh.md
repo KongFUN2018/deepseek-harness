@@ -23,8 +23,8 @@ Task-flow 持久任务 provider（`ctx.tasks`）：在单个 storageDomain 单�
   name: '@deepseek-ai/dsh-recipe'
 - id: workbench-journal
   name: '@deepseek-ai/dsh-workbench-journal'
-- id: deliverable-minimal
-  name: '@deepseek-ai/dsh-deliverable-minimal'
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
 - id: task-local
   name: '@deepseek-ai/dsh-task-local'
 ```
@@ -62,6 +62,6 @@ Remote 命令面继承自 task Service Definition；本 provider 不新增方法
 
 ## 已知限制与延后工作
 
-- **单介质投影规模。** `loadTaskByIdempotencyKey` 与 `loadSubmissionByIdempotencyKey` 线性扫描各自表；按键索引随 M2 存储 provider 延后。
-- **Gate 结果不带调用方来源。** `recordGateCheck` 由引擎拥有，从 submission 与 check id 加记录时间戳推导来源；调用方提供的 actor 随 M2 gate 写路径落地。
+- **单介质投影规模。** `loadTaskByIdempotencyKey` 与 `loadSubmissionByIdempotencyKey` 线性扫描各自表；按键索引延后至真实任务量需要时。
+- **Gate 结果不带调用方来源。** `recordGateCheck` 由引擎拥有，从 submission 与 check id 加记录时间戳推导来源；调用方提供的 actor 随多阶段 gate 写路径（M3）落地。
 - **无跨主机复制。** 写链在单主机进程内串行命令；多主机协调不在 M1 范围内。

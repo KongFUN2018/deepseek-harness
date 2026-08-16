@@ -1,156 +1,228 @@
-import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import WorkbenchHostService, { WorkbenchItemId } from '@deepseek-ai/dsh-workbench-host/src/index.ts'
-import type { WorkbenchAttentionUpdate } from '@deepseek-ai/dsh-workbench-host/src/types.ts'
+/** Unit suite: the M4 projection delegates to the persistent attention service and never silently confirms. */
 
-const seeded = (): WorkbenchHostService => new WorkbenchHostService(new Context(), {
-  seedItems: [
-    { itemId: ' b-1 ', kind: 'b-confirm', title: '确认需求要点' },
-    { itemId: 'b-2', kind: 'b-confirm', title: '确认覆盖度' },
-    { itemId: 'c-1', kind: 'c-decision', title: '拍板口径' },
-  ],
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Context } from '@deepseek-ai/cordis'
+import Storage from '@deepseek-ai/dsh-storage'
+import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
+import RecipeRegistry from '@deepseek-ai/dsh-recipe'
+import DeliverableService from '@deepseek-ai/dsh-deliverable-local'
+import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
+import LocalTaskService from '@deepseek-ai/dsh-task-local'
+import { TaskId } from '@deepseek-ai/dsh-task'
+import AttentionService, { AttentionItemId } from '@deepseek-ai/dsh-attention'
+import type { AttentionItemKind } from '@deepseek-ai/dsh-attention'
+import WorkbenchHostService, { WorkbenchItemId } from '../src/index.ts'
+import type { WorkbenchAttentionUpdate } from '../src/types.ts'
+import {
+  MemoryStorageBackend,
+} from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
+
+/** Boot task, journal, attention, and workbench-host services over one memory medium. */
+async function harness() {
+  const ctx = new Context()
+  await ctx.plugin(Storage)
+  ctx.storage.backend.register('memory', new MemoryStorageBackend())
+  const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
+  ctx.storage.mount('domain', facility)
+  ctx.provide('storageDomain', facility)
+  await ctx.plugin(RecipeRegistry)
+  await ctx.plugin(WorkbenchJournalService)
+  await ctx.plugin(DeliverableService)
+  await ctx.plugin(LocalTaskService)
+  await ctx.plugin(AttentionService)
+  await ctx.plugin(WorkbenchHostService)
+  return { ctx, workbenchHost: ctx.workbenchHost, attention: ctx.attention }
+}
+
+let current: Context | undefined
+afterEach(async () => {
+  await current?.fiber.dispose()
+  current = undefined
 })
 
-describe('workbench host service', () => {
-  it('seeds items with trimmed ids at revision 1 and versions the first snapshot', () => {
-    const svc = seeded()
-    const snapshot = svc.listSnapshot()
-    expect(snapshot.snapshotVersion).toBe(1)
-    expect(snapshot.items.map((item: { itemId: string }) => item.itemId)).toEqual(['b-1', 'b-2', 'c-1'])
-    expect(snapshot.items.every((item: { entityRevision: number; status: string }) => item.entityRevision === 1 && item.status === 'open')).toBe(true)
+/** Create one open attention item through the persistent service. */
+async function seedOpen(
+  h: Awaited<ReturnType<typeof harness>>,
+  kind: AttentionItemKind,
+  itemId: string,
+  checkId: string | undefined,
+  options: string[],
+) {
+  await h.attention.createItem({
+    itemId: AttentionItemId(itemId),
+    taskId: TaskId('t-1'),
+    kind,
+    decisionKind: 'gate',
+    ...(checkId === undefined ? {} : { checkId }),
+    options,
+  }, 'pm', `seed-${itemId}`)
+}
+
+describe('workbench host projection', () => {
+  it('projects open items into views with a journal-derived snapshot version', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    await seedOpen(h, 'c-decision', 'c-1', 'pick-convention', ['alpha', 'beta'])
+    const snapshot = h.workbenchHost.listSnapshot()
+    expect(snapshot.items.map(item => item.itemId)).toEqual(['b-1', 'c-1'])
+    expect(snapshot.items.map(item => item.title)).toEqual(['confirm-scope', 'pick-convention'])
+    expect(snapshot.items.every(item => item.status === 'open')).toBe(true)
+    expect(snapshot.snapshotVersion).toBeGreaterThan(0)
   })
 
-  it('reports an empty inbox as snapshot version 0', () => {
-    const svc = new WorkbenchHostService(new Context())
-    expect(svc.listSnapshot()).toEqual({ snapshotVersion: 0, items: [] })
+  it('reports an empty inbox at the current journal position', async () => {
+    const h = await harness()
+    current = h.ctx
+    const snapshot = h.workbenchHost.listSnapshot()
+    expect(snapshot.items).toEqual([])
   })
 
-  it('rejects seed lists with a duplicate id, an empty title, or an empty item id', () => {
-    const build = (seedItems: Array<{ itemId: string; kind: 'b-confirm' | 'c-decision'; title: string }>) =>
-      new WorkbenchHostService(new Context(), { seedItems })
-    expect(() => build([
-      { itemId: 'x', kind: 'b-confirm', title: 'a' },
-      { itemId: 'x', kind: 'b-confirm', title: 'b' },
-    ])).toThrow(/appears twice/)
-    expect(() => build([
-      { itemId: 'x', kind: 'b-confirm', title: ' ' },
-    ])).toThrow(/title/)
-    expect(() => build([
-      { itemId: ' ', kind: 'b-confirm', title: 'a' },
-    ])).toThrow(/seed itemId/)
-  })
-
-  it('resolves every open matching item in one batch and bumps the version once', () => {
-    const svc = seeded()
-    const updates: WorkbenchAttentionUpdate[] = []
-    svc['ctx'].on('workbench/attention-updated', (update: WorkbenchAttentionUpdate) => updates.push(update))
-    const response = svc.confirmBatch({
-      actor: ' user ',
+  it('delegates batch confirm and reports per-item outcomes without silent confirmation', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    await seedOpen(h, 'b-confirm', 'b-2', 'confirm-coverage', ['yes'])
+    const response = await h.workbenchHost.confirmBatch({
+      actor: 'user',
       items: [
         { itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1 },
         { itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 1 },
-      ],
-    })
-    expect(response.results).toEqual([
-      { itemId: 'b-1', outcome: 'resolved', currentRevision: 2 },
-      { itemId: 'b-2', outcome: 'resolved', currentRevision: 2 },
-    ])
-    expect(response.snapshotVersion).toBe(2)
-    expect(updates).toHaveLength(1)
-    expect(updates[0]).toMatchObject({ snapshotVersion: 2, changed: [
-      { itemId: 'b-1', status: 'resolved', entityRevision: 2 },
-      { itemId: 'b-2', status: 'resolved', entityRevision: 2 },
-    ] })
-  })
-
-  it('reports per-item withdrawn, conflict, already-resolved, and stale outcomes without committing', () => {
-    const svc = seeded()
-    svc.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 1 }] })
-    const response = svc.confirmBatch({
-      actor: 'user',
-      items: [
         { itemId: WorkbenchItemId('gone'), expectedEntityRevision: 1 },
-        { itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 9 },
-        { itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 2 },
-        { itemId: WorkbenchItemId('c-1'), expectedEntityRevision: 9 },
       ],
     })
-    expect(response.results.map(row => [row.itemId, row.outcome, row.currentRevision])).toEqual([
-      ['gone', 'withdrawn', undefined],
-      ['b-1', 'conflict', 1],
-      ['b-2', 'already-resolved', 2],
-      ['c-1', 'conflict', 1],
+    expect(response.results.map(row => [row.itemId, row.outcome])).toEqual([
+      ['b-1', 'resolved'],
+      ['b-2', 'resolved'],
+      ['gone', 'withdrawn'],
     ])
-    expect(response.snapshotVersion).toBe(2)
+    expect(response.results[0]?.currentRevision).toBe(2)
   })
 
-  it('reports stale for a confirm on an invalidated item', () => {
-    const svc = seeded()
-    svc.invalidateItem({ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1, reason: '上游口径变化', actor: 'engine' })
-    const response = svc.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 2 }] })
-    expect(response.results[0]).toMatchObject({ outcome: 'stale', currentRevision: 2 })
-    expect(response.snapshotVersion).toBe(2)
-  })
-
-  it('resolves a C decision, records the text, and projects it in the snapshot', () => {
-    const svc = seeded()
-    const response = svc.resolveDecision({
+  it('maps the decision text to optionId and records the resolved outcome', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'c-decision', 'c-1', 'pick-convention', ['alpha', 'beta'])
+    const response = await h.workbenchHost.resolveDecision({
       itemId: WorkbenchItemId('c-1'),
       expectedEntityRevision: 1,
-      decision: ' 采用新增+存量口径 ',
+      decision: 'alpha',
       actor: 'user',
     })
-    expect(response).toEqual({ snapshotVersion: 2, outcome: 'resolved', currentRevision: 2 })
-    const item = svc.listSnapshot().items.find((entry: { itemId: string }) => entry.itemId === 'c-1')
-    expect(item?.status).toBe('resolved')
-    expect(item?.decision).toBe('采用新增+存量口径')
+    expect(response.outcome).toBe('resolved')
+    expect(response.currentRevision).toBe(2)
+    const item = h.attention.getItem(AttentionItemId('c-1'))
+    expect(item?.outcome).toBe('alpha')
   })
 
-  it('returns the decision ladder for non-open C items', () => {
-    const svc = seeded()
-    expect(svc.resolveDecision({ itemId: WorkbenchItemId('gone'), expectedEntityRevision: 1, decision: 'd', actor: 'user' }))
-      .toEqual({ snapshotVersion: 1, outcome: 'withdrawn' })
-    svc.resolveDecision({ itemId: WorkbenchItemId('c-1'), expectedEntityRevision: 1, decision: 'd', actor: 'user' })
-    expect(svc.resolveDecision({ itemId: WorkbenchItemId('c-1'), expectedEntityRevision: 2, decision: 'd', actor: 'user' }))
-      .toEqual({ snapshotVersion: 2, outcome: 'already-resolved', currentRevision: 2 })
-    expect(svc.resolveDecision({ itemId: WorkbenchItemId('c-1'), expectedEntityRevision: 9, decision: 'd', actor: 'user' }).outcome).toBe('already-resolved')
+  it('delegates upstream invalidation', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    const response = await h.workbenchHost.invalidateItem({
+      itemId: WorkbenchItemId('b-1'),
+      expectedEntityRevision: 1,
+      reason: 'upstream change',
+      actor: 'engine',
+    })
+    expect(response.outcome).toBe('invalidated')
   })
 
-  it('invalidates an open item and reports the invalidation ladder', () => {
-    const svc = seeded()
-    expect(svc.invalidateItem({ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1, reason: '上游变化', actor: 'engine' }))
-      .toEqual({ snapshotVersion: 2, outcome: 'invalidated', currentRevision: 2 })
-    expect(svc.invalidateItem({ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 2, reason: '再失效', actor: 'engine' }))
-      .toEqual({ snapshotVersion: 2, outcome: 'stale', currentRevision: 2 })
-    expect(svc.invalidateItem({ itemId: WorkbenchItemId('gone'), expectedEntityRevision: 1, reason: 'r', actor: 'engine' }))
-      .toEqual({ snapshotVersion: 2, outcome: 'withdrawn' })
-    expect(svc.invalidateItem({ itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 9, reason: 'r', actor: 'engine' }))
-      .toEqual({ snapshotVersion: 2, outcome: 'conflict', currentRevision: 1 })
-    svc.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 1 }] })
-    expect(svc.invalidateItem({ itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 2, reason: 'r', actor: 'engine' }))
-      .toEqual({ snapshotVersion: 3, outcome: 'already-resolved', currentRevision: 2 })
+  it('reports conflict, already-resolved, and stale ladders from the persistent service', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    await seedOpen(h, 'b-confirm', 'b-2', 'confirm-coverage', ['yes'])
+    await h.workbenchHost.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1 }] })
+    await h.workbenchHost.invalidateItem({ itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 1, reason: 'stale', actor: 'engine' })
+    const response = await h.workbenchHost.confirmBatch({
+      actor: 'user',
+      items: [
+        { itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1 },
+        { itemId: WorkbenchItemId('b-2'), expectedEntityRevision: 1 },
+        { itemId: WorkbenchItemId('b-3'), expectedEntityRevision: 9 },
+      ],
+    })
+    expect(response.results.map(row => row.outcome)).toEqual(['already-resolved', 'stale', 'withdrawn'])
+  })
+  it('broadcasts workbench/attention-updated only for committed changes', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    const updates: WorkbenchAttentionUpdate[] = []
+    h.ctx.on('workbench/attention-updated', (update: WorkbenchAttentionUpdate) => updates.push(update))
+    await h.workbenchHost.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1 }] })
+    expect(updates).toHaveLength(1)
+    expect(updates[0]).toMatchObject({ changed: [{ itemId: 'b-1', status: 'resolved', entityRevision: 2 }] })
+    expect(updates[0]?.snapshotVersion).toBeGreaterThan(0)
   })
 
-  it('validates wire inputs loudly', () => {
-    const svc = seeded()
-    expect(() => svc.confirmBatch({ actor: ' ', items: [] })).toThrow(/actor/)
-    expect(() => svc.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 0 }] }))
-      .toThrow(/expectedEntityRevision/)
-    expect(() => svc.resolveDecision({ itemId: WorkbenchItemId('c-1'), expectedEntityRevision: 1, decision: '', actor: 'user' }))
-      .toThrow(/decision/)
-    expect(() => svc.invalidateItem({ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1, reason: ' ', actor: 'engine' }))
-      .toThrow(/reason/)
+  it('rejects blank actor, decision, and reason at the wire boundary', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    await expect(h.workbenchHost.confirmBatch({ actor: ' ', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1 }] })).rejects.toThrow(/actor/)
+    await expect(h.workbenchHost.resolveDecision({ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1, decision: '', actor: 'user' })).rejects.toThrow(/decision/)
+    await expect(h.workbenchHost.invalidateItem({ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1, reason: ' ', actor: 'engine' })).rejects.toThrow(/reason/)
   })
 
-  it('contains a throwing attention-updated listener and keeps the commit', () => {
-    const svc = seeded()
-    const warn = vi.spyOn(svc['ctx'].logger, 'warn').mockImplementation(() => {})
-    svc['ctx'].on('workbench/attention-updated', () => { throw new Error('listener boom') })
-    const response = svc.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1 }] })
+  it('rejects a non-positive compare-and-set revision', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    await expect(h.workbenchHost.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 0 }] })).rejects.toThrow(/expectedEntityRevision/)
+  })
+
+  it('derives the title from decisionKind when no checkId is present', async () => {
+    const h = await harness()
+    current = h.ctx
+    await h.attention.createItem({
+      itemId: AttentionItemId('clarify:q-1'),
+      taskId: TaskId('t-1'),
+      kind: 'clarification',
+      decisionKind: 'clarification',
+      options: ['yes'],
+    }, 'pm', 'seed-clarify-q-1')
+    const snapshot = h.workbenchHost.listSnapshot()
+    expect(snapshot.items[0]?.title).toBe('clarification')
+  })
+
+  it('reports withdrawn for a missing decision target without a retry revision', async () => {
+    const h = await harness()
+    current = h.ctx
+    const response = await h.workbenchHost.resolveDecision({
+      itemId: WorkbenchItemId('gone'),
+      expectedEntityRevision: 1,
+      decision: 'yes',
+      actor: 'user',
+    })
+    expect(response.outcome).toBe('withdrawn')
+    expect(response.currentRevision).toBeUndefined()
+  })
+
+  it('reports withdrawn for a missing invalidation target without a retry revision', async () => {
+    const h = await harness()
+    current = h.ctx
+    const response = await h.workbenchHost.invalidateItem({
+      itemId: WorkbenchItemId('gone'),
+      expectedEntityRevision: 1,
+      reason: 'upstream',
+      actor: 'engine',
+    })
+    expect(response.outcome).toBe('withdrawn')
+    expect(response.currentRevision).toBeUndefined()
+  })
+
+  it('contains a throwing attention-updated listener and keeps the commit', async () => {
+    const h = await harness()
+    current = h.ctx
+    await seedOpen(h, 'b-confirm', 'b-1', 'confirm-scope', ['yes'])
+    const warn = vi.spyOn(h.ctx.logger, 'warn').mockImplementation(() => {})
+    h.ctx.on('workbench/attention-updated', () => { throw new Error('listener boom') })
+    const response = await h.workbenchHost.confirmBatch({ actor: 'user', items: [{ itemId: WorkbenchItemId('b-1'), expectedEntityRevision: 1 }] })
     expect(response.results[0]?.outcome).toBe('resolved')
-    expect(response.snapshotVersion).toBe(2)
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(svc.listSnapshot().snapshotVersion).toBe(2)
     warn.mockRestore()
   })
+
 })

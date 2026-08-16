@@ -87,6 +87,52 @@ describe('task transitions', () => {
     await expect(provider.startTask(created.taskId, mutation({ expectedRevision: 2 }))).rejects.toThrow(/cannot start/)
   })
 
+  it('parks a gate-running phase in the awaiting states and resumes it', async () => {
+    const provider = await harness()
+    const created = await provider.createTask(EMPTY_TEMPLATE_RECIPE_ID, 'w-1', 'actor', 'create-k')
+    await provider.startTask(created.taskId, mutation({ expectedRevision: 1 }))
+    const run = await provider.createTaskRun(created.taskId, mutation({ expectedRevision: 2 }))
+    const phaseRun = await provider.createPhaseRun(run.runId, 'main', mutation())
+    await provider.startPhaseRun(phaseRun.phaseRunId, mutation())
+    const stored = await provider.recordSubmission(submission(created, run, phaseRun), {
+      submittedBy: 'driver',
+      sourceSeqPersisted: true,
+      inputsCurrent: true,
+      outputsValid: true,
+    })
+    const gated = await provider.startGate(stored.submissionId, mutation({ expectedRevision: 3 }))
+    expect(gated.state).toBe('gate-running')
+
+    const awaitingInput = await provider.markPhaseAwaitingInput(gated.phaseRunId, mutation({ expectedRevision: 4 }))
+    expect(awaitingInput.state).toBe('awaiting-input')
+    await expect(provider.markPhaseAwaitingDecision(gated.phaseRunId, mutation({ expectedRevision: 5 })))
+      .rejects.toThrow(/cannot awaitDecision/)
+    const resumedInput = await provider.resumePhaseFromAwaiting(gated.phaseRunId, mutation({ expectedRevision: 5 }))
+    expect(resumedInput.state).toBe('gate-running')
+
+    const awaitingDecision = await provider.markPhaseAwaitingDecision(gated.phaseRunId, mutation({ expectedRevision: 6 }))
+    expect(awaitingDecision.state).toBe('awaiting-decision')
+    const resumedDecision = await provider.resumePhaseFromAwaiting(gated.phaseRunId, mutation({ expectedRevision: 7 }))
+    expect(resumedDecision.state).toBe('gate-running')
+    await expect(provider.resumePhaseFromAwaiting(gated.phaseRunId, mutation({ expectedRevision: 8 })))
+      .rejects.toThrow(/cannot resumeFromAwaiting/)
+  })
+
+  it('records and updates the phase session id idempotently', async () => {
+    const provider = await harness()
+    const created = await provider.createTask(EMPTY_TEMPLATE_RECIPE_ID, 'w-1', 'actor', 'create-k')
+    await provider.startTask(created.taskId, mutation({ expectedRevision: 1 }))
+    const run = await provider.createTaskRun(created.taskId, mutation({ expectedRevision: 2 }))
+    const phaseRun = await provider.createPhaseRun(run.runId, 'main', mutation())
+    const recorded = await provider.recordPhaseSession(phaseRun.phaseRunId, 'phase-1', mutation({ expectedRevision: 1 }))
+    expect(recorded.sessionId).toBe('phase-1')
+    const again = await provider.recordPhaseSession(phaseRun.phaseRunId, 'phase-1', mutation({ expectedRevision: 2 }))
+    expect(again.revision).toBe(2)
+    const changed = await provider.recordPhaseSession(phaseRun.phaseRunId, 'phase-2', mutation({ expectedRevision: 2 }))
+    expect(changed.sessionId).toBe('phase-2')
+    expect(changed.revision).toBe(3)
+  })
+
   it('completion guard requires every phase passed', async () => {
     const provider = await harness()
     const created = await provider.createTask(EMPTY_TEMPLATE_RECIPE_ID, 'w-1', 'actor', 'create-k')

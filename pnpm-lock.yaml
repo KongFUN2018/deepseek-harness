@@ -449,12 +449,18 @@ importers:
       '@deepseek-ai/dsh-attachment-local':
         specifier: workspace:*
         version: link:../packages/attachment/attachment-local
+      '@deepseek-ai/dsh-attention':
+        specifier: workspace:*
+        version: link:../packages/task-flow/attention
       '@deepseek-ai/dsh-bash-local':
         specifier: workspace:*
         version: link:../packages/shell/bash-local
       '@deepseek-ai/dsh-bash-sandbox':
         specifier: workspace:*
         version: link:../packages/shell/bash-sandbox
+      '@deepseek-ai/dsh-clarification':
+        specifier: workspace:*
+        version: link:../packages/task-flow/clarification
       '@deepseek-ai/dsh-code-runtime-worker-thread':
         specifier: workspace:*
         version: link:../packages/code-runtime/code-runtime-worker-thread
@@ -482,12 +488,15 @@ importers:
       '@deepseek-ai/dsh-credentials-local':
         specifier: workspace:*
         version: link:../packages/credentials/credentials-local
-      '@deepseek-ai/dsh-deliverable-minimal':
+      '@deepseek-ai/dsh-deliverable-local':
         specifier: workspace:*
-        version: link:../packages/task-flow/deliverable-minimal
+        version: link:../packages/task-flow/deliverable-local
       '@deepseek-ai/dsh-e2b':
         specifier: workspace:*
         version: link:../packages/e2b/e2b
+      '@deepseek-ai/dsh-edit-lock':
+        specifier: workspace:*
+        version: link:../packages/task-flow/edit-lock
       '@deepseek-ai/dsh-fs-e2b':
         specifier: workspace:*
         version: link:../packages/e2b/fs-e2b
@@ -500,6 +509,9 @@ importers:
       '@deepseek-ai/dsh-fs-sandbox':
         specifier: workspace:^
         version: link:../packages/fs/fs-sandbox
+      '@deepseek-ai/dsh-gate':
+        specifier: workspace:*
+        version: link:../packages/task-flow/gate
       '@deepseek-ai/dsh-goal':
         specifier: workspace:*
         version: link:../packages/goal/goal
@@ -512,6 +524,9 @@ importers:
       '@deepseek-ai/dsh-hooks-codex':
         specifier: workspace:*
         version: link:../packages/hooks/hooks-codex
+      '@deepseek-ai/dsh-impact-propagation':
+        specifier: workspace:*
+        version: link:../packages/task-flow/impact-propagation
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:*
         version: link:../packages/runtime-diagnostics/invariants
@@ -554,6 +569,9 @@ importers:
       '@deepseek-ai/dsh-recipe-engine-core':
         specifier: workspace:*
         version: link:../packages/task-flow/recipe-engine-core
+      '@deepseek-ai/dsh-recipe-multiphase':
+        specifier: workspace:*
+        version: link:../packages/task-flow/recipe-multiphase
       '@deepseek-ai/dsh-repeat-tool-reminder':
         specifier: workspace:*
         version: link:../packages/guard/repeat-tool-reminder
@@ -764,6 +782,9 @@ importers:
       '@deepseek-ai/dsh-workbench-host':
         specifier: workspace:*
         version: link:../packages/task-flow/workbench-host
+      '@deepseek-ai/dsh-workbench-host-stream':
+        specifier: workspace:*
+        version: link:../packages/task-flow/workbench-host-stream
       '@deepseek-ai/dsh-workbench-journal':
         specifier: workspace:*
         version: link:../packages/task-flow/workbench-journal
@@ -888,9 +909,9 @@ importers:
       '@deepseek-ai/dsh-credentials':
         specifier: workspace:^
         version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-deliverable-minimal':
+      '@deepseek-ai/dsh-deliverable-local':
         specifier: workspace:^
-        version: link:../../task-flow/deliverable-minimal
+        version: link:../../task-flow/deliverable-local
       '@deepseek-ai/dsh-goal':
         specifier: workspace:^
         version: link:../../goal/goal
@@ -927,6 +948,9 @@ importers:
       '@deepseek-ai/dsh-workbench-host':
         specifier: workspace:^
         version: link:../../task-flow/workbench-host
+      '@deepseek-ai/dsh-workbench-host-stream':
+        specifier: workspace:^
+        version: link:../../task-flow/workbench-host-stream
 
   packages/attachment/attachment:
     devDependencies:
@@ -1046,6 +1070,9 @@ importers:
       '@deepseek-ai/dsh-attachment-local':
         specifier: workspace:^
         version: link:../../attachment/attachment-local
+      '@deepseek-ai/dsh-attention':
+        specifier: workspace:^
+        version: link:../../task-flow/attention
       '@deepseek-ai/dsh-bash-sandbox':
         specifier: workspace:^
         version: link:../../shell/bash-sandbox
@@ -1070,9 +1097,12 @@ importers:
       '@deepseek-ai/dsh-credentials-local':
         specifier: workspace:^
         version: link:../../credentials/credentials-local
-      '@deepseek-ai/dsh-deliverable-minimal':
+      '@deepseek-ai/dsh-deliverable-local':
         specifier: workspace:^
-        version: link:../../task-flow/deliverable-minimal
+        version: link:../../task-flow/deliverable-local
+      '@deepseek-ai/dsh-edit-lock':
+        specifier: workspace:^
+        version: link:../../task-flow/edit-lock
       '@deepseek-ai/dsh-fs-local':
         specifier: workspace:^
         version: link:../../fs/fs-local
@@ -1088,6 +1118,9 @@ importers:
       '@deepseek-ai/dsh-goal-round-driver':
         specifier: workspace:^
         version: link:../../goal/goal-round-driver
+      '@deepseek-ai/dsh-impact-propagation':
+        specifier: workspace:^
+        version: link:../../task-flow/impact-propagation
       '@deepseek-ai/dsh-jobs-local':
         specifier: workspace:^
         version: link:../../jobs/jobs-local
@@ -1268,6 +1301,9 @@ importers:
       '@deepseek-ai/dsh-workbench-host':
         specifier: workspace:^
         version: link:../../task-flow/workbench-host
+      '@deepseek-ai/dsh-workbench-host-stream':
+        specifier: workspace:^
+        version: link:../../task-flow/workbench-host-stream
       '@deepseek-ai/dsh-workbench-journal':
         specifier: workspace:^
         version: link:../../task-flow/workbench-journal
@@ -1348,6 +1384,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-agent-preset':
         specifier: workspace:^
         version: link:../../client/ui-agent-preset
+      '@deepseek-ai/dsh-client-ui-attention-inbox':
+        specifier: workspace:^
+        version: link:../../task-flow/client-ui-attention-inbox
       '@deepseek-ai/dsh-client-ui-commands':
         specifier: workspace:^
         version: link:../../client/ui-commands
@@ -1417,6 +1456,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-task-board':
         specifier: workspace:^
         version: link:../../task-flow/client-ui-task-board
+      '@deepseek-ai/dsh-client-ui-task-detail':
+        specifier: workspace:^
+        version: link:../../task-flow/client-ui-task-detail
       '@deepseek-ai/dsh-client-ui-theme':
         specifier: workspace:^
         version: link:../../client/ui-theme
@@ -4785,9 +4827,9 @@ importers:
       '@deepseek-ai/dsh-credentials':
         specifier: workspace:^
         version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-deliverable-minimal':
+      '@deepseek-ai/dsh-deliverable-local':
         specifier: workspace:^
-        version: link:../../task-flow/deliverable-minimal
+        version: link:../../task-flow/deliverable-local
       '@deepseek-ai/dsh-goal':
         specifier: workspace:^
         version: link:../../goal/goal
@@ -7587,6 +7629,135 @@ importers:
         specifier: workspace:^
         version: link:../../util/timeout
 
+  packages/task-flow/attention:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:^
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:^
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:^
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-task':
+        specifier: workspace:^
+        version: link:../task
+      '@deepseek-ai/dsh-task-local':
+        specifier: workspace:^
+        version: link:../task-local
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
+
+  packages/task-flow/clarification:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-attention':
+        specifier: workspace:^
+        version: link:../attention
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:^
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:^
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:^
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:^
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-task':
+        specifier: workspace:^
+        version: link:../task
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
+
+  packages/task-flow/client-ui-attention-inbox:
+    dependencies:
+      '@deepseek-ai/dsh-client-ui-primitives':
+        specifier: workspace:^
+        version: link:../../client/ui-primitives
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: workspace:^
+        version: link:../../client/ui-slots
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-api-remotes':
+        specifier: workspace:^
+        version: link:../../api/remotes
+      '@deepseek-ai/dsh-client-locale':
+        specifier: workspace:^
+        version: link:../../client/locale
+      '@deepseek-ai/dsh-client-test-runtime':
+        specifier: workspace:^
+        version: link:../../test-support/client-runtime
+      '@deepseek-ai/dsh-client-ui-sidebar':
+        specifier: workspace:^
+        version: link:../../client/ui-sidebar
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-host':
+        specifier: workspace:^
+        version: link:../workbench-host
+      '@deepseek-ai/dsh-workbench-host-stream':
+        specifier: workspace:^
+        version: link:../workbench-host-stream
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
   packages/task-flow/client-ui-task-board:
     dependencies:
       '@deepseek-ai/dsh-client-ui-primitives':
@@ -7633,7 +7804,53 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
 
-  packages/task-flow/deliverable-minimal:
+  packages/task-flow/client-ui-task-detail:
+    dependencies:
+      '@deepseek-ai/dsh-client-ui-primitives':
+        specifier: workspace:^
+        version: link:../../client/ui-primitives
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: workspace:^
+        version: link:../../client/ui-slots
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-api-remotes':
+        specifier: workspace:^
+        version: link:../../api/remotes
+      '@deepseek-ai/dsh-client-locale':
+        specifier: workspace:^
+        version: link:../../client/locale
+      '@deepseek-ai/dsh-client-test-runtime':
+        specifier: workspace:^
+        version: link:../../test-support/client-runtime
+      '@deepseek-ai/dsh-client-ui-sidebar':
+        specifier: workspace:^
+        version: link:../../client/ui-sidebar
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-task':
+        specifier: workspace:^
+        version: link:../task
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
+  packages/task-flow/deliverable-local:
     dependencies:
       zod:
         specifier: ^4.4.3
@@ -7663,6 +7880,109 @@ importers:
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:^
         version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
+
+  packages/task-flow/edit-lock:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-deliverable-local':
+        specifier: workspace:^
+        version: link:../deliverable-local
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-recipe':
+        specifier: workspace:^
+        version: link:../recipe
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:^
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:^
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-task':
+        specifier: workspace:^
+        version: link:../task
+      '@deepseek-ai/dsh-task-local':
+        specifier: workspace:^
+        version: link:../task-local
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
+
+  packages/task-flow/gate:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-attention':
+        specifier: workspace:^
+        version: link:../attention
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-recipe':
+        specifier: workspace:^
+        version: link:../recipe
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:^
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:^
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-task':
+        specifier: workspace:^
+        version: link:../task
+      '@deepseek-ai/dsh-task-local':
+        specifier: workspace:^
+        version: link:../task-local
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
+
+  packages/task-flow/impact-propagation:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-deliverable-local':
+        specifier: workspace:^
+        version: link:../deliverable-local
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:^
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:^
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-task':
+        specifier: workspace:^
+        version: link:../task
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
 
   packages/task-flow/recipe:
     dependencies:
@@ -7701,9 +8021,9 @@ importers:
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:^
         version: link:../../boot/app-boot
-      '@deepseek-ai/dsh-deliverable-minimal':
+      '@deepseek-ai/dsh-deliverable-local':
         specifier: workspace:^
-        version: link:../deliverable-minimal
+        version: link:../deliverable-local
       '@deepseek-ai/dsh-goal':
         specifier: workspace:^
         version: link:../../goal/goal
@@ -7734,6 +8054,24 @@ importers:
       '@deepseek-ai/dsh-workbench-journal':
         specifier: workspace:^
         version: link:../workbench-journal
+
+  packages/task-flow/recipe-multiphase:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-recipe':
+        specifier: workspace:^
+        version: link:../recipe
+      '@deepseek-ai/dsh-recipe-engine-core':
+        specifier: workspace:^
+        version: link:../recipe-engine-core
 
   packages/task-flow/task:
     dependencies:
@@ -7772,9 +8110,9 @@ importers:
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:^
         version: link:../../boot/app-boot
-      '@deepseek-ai/dsh-deliverable-minimal':
+      '@deepseek-ai/dsh-deliverable-local':
         specifier: workspace:^
-        version: link:../deliverable-minimal
+        version: link:../deliverable-local
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
@@ -7798,13 +8136,6 @@ importers:
         version: link:../workbench-journal
 
   packages/task-flow/workbench-host:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
@@ -7812,6 +8143,9 @@ importers:
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:^
         version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-attention':
+        specifier: workspace:^
+        version: link:../attention
       '@deepseek-ai/dsh-brand':
         specifier: workspace:^
         version: link:../../util/brand
@@ -7821,6 +8155,48 @@ importers:
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:^
         version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
+
+  packages/task-flow/workbench-host-stream:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-attention':
+        specifier: workspace:^
+        version: link:../attention
+      '@deepseek-ai/dsh-deliverable-local':
+        specifier: workspace:^
+        version: link:../deliverable-local
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-recipe':
+        specifier: workspace:^
+        version: link:../recipe
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:^
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:^
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-task':
+        specifier: workspace:^
+        version: link:../task
+      '@deepseek-ai/dsh-task-local':
+        specifier: workspace:^
+        version: link:../task-local
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      '@deepseek-ai/dsh-workbench-journal':
+        specifier: workspace:^
+        version: link:../workbench-journal
 
   packages/task-flow/workbench-journal:
     dependencies:

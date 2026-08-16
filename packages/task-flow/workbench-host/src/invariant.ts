@@ -15,9 +15,9 @@ export const name = 'workbench-host-invariant'
 export const inject = ['invariants']
 
 /**
- * No runtime invariant: this slice owns an in-memory inbox with no durable
- * package-local event stream yet; the M1 journal installs its append-only
- * contract here when persistence lands.
+ * No runtime invariant: this package projects and delegates to the attention
+ * service's durable items and journal; it owns no package-local durable
+ * stream or relationship to assert.
  */
 const install: InvariantInstaller = () => {}
 

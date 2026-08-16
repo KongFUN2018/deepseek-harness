@@ -1,0 +1,36 @@
+# Test-only composition for the edit-lock service: boots the real storage
+# stack, recipe registry, workbench journal, deliverable service, and durable
+# task provider so leases persist, freeze consumers, and record journal facts
+# through the same path the base bundle mounts.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    # Driver-private scratch root; !!js reads the environment at load so each
+    # run starts on a clean medium.
+    root: !!js process.env.DSH_EDIT_LOCK_E2E_ROOT ?? '.'
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'
+
+- id: workbench-journal
+  name: '@deepseek-ai/dsh-workbench-journal'
+
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
+
+- id: task-local
+  name: '@deepseek-ai/dsh-task-local'
+
+- id: edit-lock
+  name: '@deepseek-ai/dsh-edit-lock'
+  config:
+    # Fast sweep so the expiry scenario settles within the smoke budget.
+    sweepIntervalMs: 100

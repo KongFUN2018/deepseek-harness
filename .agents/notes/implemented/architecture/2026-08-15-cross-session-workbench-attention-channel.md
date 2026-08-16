@@ -18,7 +18,7 @@ The task-flow workbench needs a process-wide attention inbox that the browser UI
 
 Every commit bumps `snapshotVersion` once and emits `workbench/attention-updated` with the changed rows; synchronous listener failures are contained and logged so a broken observer never makes a committed inbox change look failed. The event is allowlisted in `@deepseek-ai/dsh-api-remotes` for gateway forwarding, and its payload is versioned so a client behind on one push resnapshots.
 
-The store is in-memory and seeded from `Config.seedItems`; the M1 task engine replaces it with the durable journal behind the same Remote surface. The `./invariant` companion stays an explained empty installer until that journal lands an append-only contract. The service, event scope, and wire types render onto `docs/subsystems/workbench.md`.
+The store is in-memory and seeded from `Config.seedItems`; the M4 attention service later replaces it with durable entities behind the same Remote surface. The `./invariant` companion stays an explained empty installer until that service lands an append-only contract. The service, event scope, and wire types render onto `docs/subsystems/workbench.md`.
 
 ## Alternatives considered
 
@@ -28,4 +28,4 @@ The store is in-memory and seeded from `Config.seedItems`; the M1 task engine re
 
 ## Consequences
 
-Bought a real, tested cross-session channel (unit, invariant, and a keyless real-Loader smoke) with a versioned snapshot, per-item conflict ladder, and a forwarded push event. Cost: inbox state is lost on restart until the M1 journal lands, batches are first-write-wins with no server-side queue, and the push event carries change rows rather than whole snapshots, so reconnect resynchronization stays on the M1 client.
+Bought a real, tested cross-session channel (unit, invariant, and a keyless real-Loader smoke) with a versioned snapshot, per-item conflict ladder, and a forwarded push event. Cost: inbox state is lost on restart until the M4 attention service lands, batches are first-write-wins with no server-side queue, and the push event carries change rows rather than whole snapshots, so reconnect resynchronization stays with the M4 channel client.

@@ -1,7 +1,7 @@
 /**
  * Pure task and phase-run transition tables. The task package owns these
- * transitions; providers persist, they never widen them. Unreachable-in-M1
- * states stay declared in the vocabulary but no M1 command enters them.
+ * transitions; providers persist, they never widen them. States no shipped
+ * command enters stay declared in the vocabulary.
  * @module @deepseek-ai/dsh-task/src/state
  */
 
@@ -55,18 +55,37 @@ export function taskTransition(state: TaskState, command: TaskCommand): TaskStat
 
 /**
  * M1 completion guard: the task runs and every phase run of the current run
- * passed. Open decisions, unsigned B items, and stale deliverables enter the
- * guard when their services land (M3/M4).
+ * passed. Retired runs do not block completion: an impact-staled run is a
+ * terminal old run the engine already replaced with a fresh passed run.
+ * Open decisions, unsigned B items, and stale deliverables enter the guard
+ * when their services land (M3/M4).
  * @param state - the task's current state.
  * @param phaseStates - every phase-run state of the current run.
  * @returns whether the task may complete.
  */
 export function canCompleteTask(state: TaskState, phaseStates: readonly PhaseRunState[]): boolean {
-  return state === 'running' && phaseStates.length > 0 && phaseStates.every(phase => phase === 'passed')
+  return state === 'running' && phaseStates.length > 0 && phaseStates.every(phase => phase === 'passed' || phase === 'stale')
 }
 
-/** Phase-run commands the task service accepts. */
-export type PhaseCommand = 'start' | 'acceptSubmission' | 'startGate' | 'pass' | 'fail' | 'cancel'
+/**
+ * Phase-run commands the task service accepts. `stale` is the M2 impact
+ * command: running and submitting are excluded because an in-flight atomic
+ * action settles per the M1 quiescence contract, and its submission is
+ * rejected on stale inputs at acceptance instead. `passed` is a source: a
+ * passed run over invalidated inputs is exactly the pseudo-valid downstream
+ * the closure exists to retire.
+ */
+export type PhaseCommand =
+  | 'start'
+  | 'acceptSubmission'
+  | 'startGate'
+  | 'pass'
+  | 'fail'
+  | 'cancel'
+  | 'stale'
+  | 'awaitInput'
+  | 'awaitDecision'
+  | 'resumeFromAwaiting'
 
 /** Allowed source states per phase command. */
 const PHASE_SOURCES: Readonly<Record<PhaseCommand, readonly PhaseRunState[]>> = {
@@ -76,6 +95,10 @@ const PHASE_SOURCES: Readonly<Record<PhaseCommand, readonly PhaseRunState[]>> = 
   pass: ['gate-running'],
   fail: ['gate-running'],
   cancel: ['created', 'scheduled', 'running', 'submitting', 'submitted', 'gate-running'],
+  stale: ['created', 'scheduled', 'submitted', 'gate-running', 'awaiting-input', 'awaiting-decision', 'patching', 'passed'],
+  awaitInput: ['gate-running'],
+  awaitDecision: ['gate-running'],
+  resumeFromAwaiting: ['awaiting-input', 'awaiting-decision'],
 }
 
 /** Destination state per phase command. */
@@ -86,6 +109,10 @@ const PHASE_NEXT: Readonly<Record<PhaseCommand, PhaseRunState>> = {
   pass: 'passed',
   fail: 'failed',
   cancel: 'cancelled',
+  stale: 'stale',
+  awaitInput: 'awaiting-input',
+  awaitDecision: 'awaiting-decision',
+  resumeFromAwaiting: 'gate-running',
 }
 
 /**

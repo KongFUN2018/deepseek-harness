@@ -36,4 +36,4 @@ M1 ⑦ 需要任务流工作台的最小浏览器面：跨会话任务列表，�
 
 - 看板是第一个 `packages/client/` 之外的 client 插件；其注册证明三处注册面与落位无关（css-modules 的 `include` 需要在 `tsconfig.client.json` 加一行显式条目，沿 ui-cordis 先例）。
 - `task-run/updated` 与 `phase-run/updated` 已转发但此处未消费；task-detail 包继承同样的折叠模式。
-- 控制器模式（快照存储 + 版本门控折叠 + reset 重同步）是 attention inbox 将需要的模板；出现第二个消费者时，把共享折叠抽成小工具优于复制。
+- 控制器模式（快照存储 + 版本门控折叠 + reset 重同步）是 attention inbox 在 [`task-flow-m4-client-ui`](2026-08-16-task-flow-m4-client-ui.md) 中复用的模板；当前为复制而非抽取，抽出共享折叠到小工具仍推迟到第三个消费者出现。

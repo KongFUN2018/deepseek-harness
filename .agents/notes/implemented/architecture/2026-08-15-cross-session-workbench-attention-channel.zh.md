@@ -18,7 +18,7 @@ Status: implemented
 
 每次提交把 `snapshotVersion` 递增一次，并携带变更行发出 `workbench/attention-updated`；同步监听器失败被容纳并记录日志，使损坏的观察者不会让已提交的收件箱变更看起来失败。该事件已列入 `@deepseek-ai/dsh-api-remotes` 白名单供网关转发，载荷带版本号，落后一次推送的客户端据此重取快照。
 
-存储为内存态并由 `Config.seedItems` 播种；M1 任务引擎在同一 Remote 面之后以持久 journal 替换它。`./invariant` 配套插件在该 journal 落地 append-only 契约前保持说明性的空安装器。服务、事件作用域与 wire 类型渲染到 `docs/subsystems/workbench.md`。
+存储为内存态并由 `Config.seedItems` 播种；M4 attention 服务稍后在同一 Remote 面之后以持久实体替换它。`./invariant` 配套插件在该服务落地 append-only 契约前保持说明性的空安装器。服务、事件作用域与 wire 类型渲染到 `docs/subsystems/workbench.md`。
 
 ## Alternatives considered
 
@@ -28,4 +28,4 @@ Status: implemented
 
 ## Consequences
 
-换来了一条真实、经过测试的跨会话通道（单元、不变式与 keyless 真实 Loader 冒烟测试），具备带版本号的快照、逐条冲突阶梯与转发的推送事件。代价：M1 journal 落地前重启即丢状态；批量为 first-write-wins、无服务端排队；推送事件携带变更行而非全量快照，重连再同步留在 M1 客户端。
+换来了一条真实、经过测试的跨会话通道（单元、不变式与 keyless 真实 Loader 冒烟测试），具备带版本号的快照、逐条冲突阶梯与转发的推送事件。代价：M4 attention 服务落地前重启即丢状态；批量为 first-write-wins、无服务端排队；推送事件携带变更行而非全量快照，重连再同步留给 M4 通道客户端。

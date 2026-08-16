@@ -11,6 +11,7 @@ export const FROZEN_RECIPE: RecipePayload = {
   phases: [
     {
       phaseId: 'P1-material-survey',
+      kind: 'material-survey',
       goal: '素材理解：清点材料、判定可读性、归纳角色、列约束与未决',
       inputs: ['全部输入材料'],
       outputs: ['素材清单（角色/锚点/可读性）', '约束与未决项'],
@@ -18,6 +19,7 @@ export const FROZEN_RECIPE: RecipePayload = {
     },
     {
       phaseId: 'P2-requirement-map',
+      kind: 'requirement-map',
       goal: '需求梳理：要点锚点化、交叉一致性核对、生成分级澄清问题',
       inputs: ['P1 输出'],
       outputs: ['要点矩阵（逐条锚点）', '一致性发现', '澄清清单（必答/可默认）'],
@@ -25,6 +27,7 @@ export const FROZEN_RECIPE: RecipePayload = {
     },
     {
       phaseId: 'P3-clarify',
+      kind: 'clarify',
       goal: '澄清确认：批量问答与回填',
       inputs: ['P2 澄清清单'],
       outputs: ['问题-结论对'],
@@ -32,6 +35,7 @@ export const FROZEN_RECIPE: RecipePayload = {
     },
     {
       phaseId: 'P4-solution',
+      kind: 'solution',
       goal: '方案/规格：按材料完备度三态执行（起草/骨架/校验归一）',
       inputs: ['要点', '结论'],
       outputs: ['交付物', '决策登记表（编号/关联问题/状态/默认假设）'],

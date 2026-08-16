@@ -12,3 +12,4 @@ export type TaskLocalFactKind =
   | 'phase-run/updated'
   | 'submission/recorded'
   | 'gate-check/recorded'
+  | 'gate-check/staled'

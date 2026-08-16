@@ -82,6 +82,8 @@
     "@deepseek-ai/dsh-client-ui-trajectory": "workspace:^",
     "@deepseek-ai/dsh-client-ui-workspace": "workspace:^",
     "@deepseek-ai/dsh-client-ui-task-board": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-attention-inbox": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-task-detail": "workspace:^",
     "@deepseek-ai/dsh-cmdline": "workspace:^",
     "@deepseek-ai/dsh-code-runtime-worker-thread": "workspace:^",
     "@deepseek-ai/dsh-cordis-client-runner": "workspace:^",

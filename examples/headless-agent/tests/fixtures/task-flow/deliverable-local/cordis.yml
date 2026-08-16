@@ -1,0 +1,24 @@
+# Test-only composition for the deliverable-local service: boots the real
+# storage stack (hub, json backend, domain facility, workbench journal) so
+# version chains, idempotent saves, dependency edges, and impact snapshots
+# persist through the same path the base bundle mounts.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    # Driver-private scratch root; !!js reads the environment at load so each
+    # run starts on a clean medium.
+    root: !!js process.env.DSH_DELIVERABLE_E2E_ROOT ?? '.'
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: workbench-journal
+  name: '@deepseek-ai/dsh-workbench-journal'
+
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'

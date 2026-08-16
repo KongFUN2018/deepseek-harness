@@ -25,7 +25,7 @@ try {
   try {
     ctx.recipes.register('e2e-recipe', 1, {
       ...EMPTY_TEMPLATE,
-      phases: [{ phaseId: 'main', goal: 'changed', inputs: [], outputs: ['main deliverable'], submissionCriteria: [] }],
+      phases: [{ phaseId: 'main', kind: 'default', goal: 'changed', inputs: [], outputs: ['main deliverable'], submissionCriteria: [] }],
     })
   } catch (error) {
     duplicateCode = (error as RecipeError).code

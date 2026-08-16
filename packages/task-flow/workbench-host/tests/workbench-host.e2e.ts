@@ -3,13 +3,14 @@ import { fileURLToPath } from 'node:url'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 
 interface E2EProjection {
-  snapshotBefore: { snapshotVersion: number; items: Array<{ itemId: string; status: string; entityRevision: number }> }
-  batch: { snapshotVersion: number; results: Array<{ itemId: string; outcome: string; currentRevision?: number }> }
-  snapshotAfter: { snapshotVersion: number; items: Array<{ itemId: string; status: string; entityRevision: number }> }
+  before: Array<{ itemId: string; status: string; title: string }>
+  batch: Array<{ itemId: string; outcome: string; currentRevision?: number }>
+  decision: { outcome: string }
+  after: Array<{ itemId: string; status: string }>
 }
 
 describe('workbench host through a real cordis.yml and headless process', () => {
-  it('boots seeded items and reports per-item batch outcomes across the Loader', async () => {
+  it('projects attention items and reports per-item batch and decision outcomes', async () => {
     const binScript = fileURLToPath(new URL('./fixtures/e2e-driver.ts', import.meta.url))
     const configPath = fileURLToPath(new URL('../../../../examples/headless-agent/tests/fixtures/task-flow/workbench-host/cordis.yml', import.meta.url))
     const repoTsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
@@ -24,18 +25,17 @@ describe('workbench host through a real cordis.yml and headless process', () => 
     })
     expect(stderr).toBe('')
     const projection = JSON.parse(stdout) as E2EProjection
-    expect(projection.snapshotBefore.items.map(item => [item.itemId, item.status])).toEqual([
-      ['e2e-b-1', 'open'],
-      ['e2e-b-2', 'open'],
-      ['e2e-c-1', 'open'],
+    expect(projection.before.map(item => [item.itemId, item.status, item.title])).toEqual([
+      ['e2e-b-1', 'open', 'confirm-scope'],
+      ['e2e-b-2', 'open', 'confirm-coverage'],
+      ['e2e-c-1', 'open', 'pick-convention'],
     ])
-    expect(projection.batch.results).toEqual([
+    expect(projection.batch).toEqual([
       { itemId: 'e2e-b-1', outcome: 'resolved', currentRevision: 2 },
       { itemId: 'e2e-b-2', outcome: 'resolved', currentRevision: 2 },
       { itemId: 'e2e-gone', outcome: 'withdrawn' },
     ])
-    expect(projection.batch.snapshotVersion).toBe(2)
-    expect(projection.snapshotAfter.snapshotVersion).toBe(2)
-    expect(projection.snapshotAfter.items.find(item => item.itemId === 'e2e-c-1')?.status).toBe('open')
+    expect(projection.decision).toEqual({ outcome: 'resolved' })
+    expect(projection.after).toEqual([])
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 })

@@ -1,0 +1,42 @@
+# Test-only composition for persistent clarification: boots the real task-flow
+# storage stack plus the session store and clarification service, so the
+# driver parks a phase run, opens a live phase session, answers the required
+# questions, and asserts the injected session message and resume through the
+# same path the base bundle mounts. The driver drives the task lifecycle and
+# the request/answer calls programmatically.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    root: !!js process.env.DSH_CLARIFICATION_E2E_ROOT ?? '.'
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: recipe
+  name: '@deepseek-ai/dsh-recipe'
+
+- id: workbench-journal
+  name: '@deepseek-ai/dsh-workbench-journal'
+
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
+
+- id: impact-propagation
+  name: '@deepseek-ai/dsh-impact-propagation'
+
+- id: task-local
+  name: '@deepseek-ai/dsh-task-local'
+
+- id: session
+  name: '@deepseek-ai/dsh-session'
+
+- id: attention
+  name: '@deepseek-ai/dsh-attention'
+
+- id: clarification
+  name: '@deepseek-ai/dsh-clarification'

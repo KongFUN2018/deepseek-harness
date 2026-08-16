@@ -388,7 +388,7 @@ const SERVICE_ROLES: ServiceRole[] = [
   },
   {
     key: 'deliverables',
-    pkg: 'deliverable-minimal',
+    pkg: 'deliverable-local',
     title: 'Task-flow minimal deliverable versions',
     mode: 'core',
     consumers: ['storage-domain'],
@@ -399,7 +399,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'task-local',
     title: 'Task-flow durable task provider',
     mode: 'core',
-    consumers: ['storage-domain', 'workbench-journal', 'deliverable-minimal'],
+    consumers: ['storage-domain', 'workbench-journal', 'deliverable-local'],
     note: 'Implements the TaskHandle storage hooks over one storageDomain unit; every write appends its journal fact as the commit point, and submission acceptance validates deliverable refs in the task write chain.',
   },
   {

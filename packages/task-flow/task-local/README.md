@@ -23,8 +23,8 @@ The provider mounts behind the storage stack, the recipe registry, the workbench
   name: '@deepseek-ai/dsh-recipe'
 - id: workbench-journal
   name: '@deepseek-ai/dsh-workbench-journal'
-- id: deliverable-minimal
-  name: '@deepseek-ai/dsh-deliverable-minimal'
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
 - id: task-local
   name: '@deepseek-ai/dsh-task-local'
 ```
@@ -62,6 +62,6 @@ None. Task projections never enter a prompt, so no prefix is added, removed, or 
 
 ## Known Limitations and Deferred Work
 
-- **Single-medium projection sizing.** `loadTaskByIdempotencyKey` and `loadSubmissionByIdempotencyKey` scan their tables linearly; per-key indexes are deferred with the M2 storage provider.
-- **Gate results carry no caller provenance.** `recordGateCheck` is engine-owned and derives its provenance from the submission and check ids plus the recording timestamp; a caller-supplied actor lands with the M2 gate write path.
+- **Single-medium projection sizing.** `loadTaskByIdempotencyKey` and `loadSubmissionByIdempotencyKey` scan their tables linearly; per-key indexes are deferred until real task volume demands them.
+- **Gate results carry no caller provenance.** `recordGateCheck` is engine-owned and derives its provenance from the submission and check ids plus the recording timestamp; a caller-supplied actor lands with the multi-phase gate write path (M3).
 - **No cross-host replication.** The write chain serializes commands inside one host process; multi-host coordination is out of M1 scope.

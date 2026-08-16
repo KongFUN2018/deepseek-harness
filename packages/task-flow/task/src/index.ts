@@ -84,6 +84,22 @@ export abstract class TaskHandle extends TypertRemoteService {
   protected abstract loadSubmissionByIdempotencyKey(key: string): Promise<PhaseSubmission | undefined>
   protected abstract saveSubmission(submission: PhaseSubmission, provenance: WriteProvenance): Promise<void>
   protected abstract loadGateResults(submissionId: SubmissionId): Promise<GateCheckResult[]>
+
+  /**
+   * Annotate stored gate-check verdicts stale inside the provider's write
+   * chain: one journal fact per newly staled verdict, then the durable
+   * replacement of the verdict list. Verdicts already staled and unknown
+   * check ids produce no write.
+   * @param submissionId - the submission whose verdicts the impact closure covers.
+   * @param checkIds - the check ids to annotate.
+   * @param provenance - durable-write provenance of the impact command.
+   * @returns the verdicts this call staled, in storage order.
+   */
+  protected abstract staleGateChecks(
+    submissionId: SubmissionId,
+    checkIds: readonly string[],
+    provenance: WriteProvenance,
+  ): Promise<GateCheckResult[]>
   protected abstract saveGateResult(result: GateCheckResult, provenance: WriteProvenance): Promise<void>
 
   /**
@@ -465,6 +481,117 @@ export abstract class TaskHandle extends TypertRemoteService {
   }
 
   /**
+   * Mark one phase run stale: the M2 impact command. A stale run is
+   * terminal; the engine re-opens the phase as a new run. Runs in `running`
+   * or `submitting` reject — an in-flight atomic action settles per the M1
+   * quiescence contract.
+   * @param phaseRunId - the phase run the impact closure covers.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection.
+   */
+  @Remote('markPhaseStale')
+  async markPhaseStale(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutatePhaseRun(PhaseRunIdValue(phaseRunId), mutation, 'stale')
+  }
+
+  /**
+   * Park one gate-running phase run in `awaiting-input`: the M3 clarification
+   * state. The clarification service resolves the inputs and resumes the run.
+   * @param phaseRunId - the phase run awaiting clarification input.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection.
+   */
+  @Remote('markPhaseAwaitingInput')
+  async markPhaseAwaitingInput(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutatePhaseRun(PhaseRunIdValue(phaseRunId), mutation, 'awaitInput')
+  }
+
+  /**
+   * Park one gate-running phase run in `awaiting-decision`: the M3 complex-gate
+   * state for B/C checks. The attention service decides and resumes the run.
+   * @param phaseRunId - the phase run awaiting a B/C decision.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection.
+   */
+  @Remote('markPhaseAwaitingDecision')
+  async markPhaseAwaitingDecision(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutatePhaseRun(PhaseRunIdValue(phaseRunId), mutation, 'awaitDecision')
+  }
+
+  /**
+   * Return a parked phase run from `awaiting-input` or `awaiting-decision` to
+   * `gate-running`, so the engine re-runs the gate. Clarification completion
+   * and attention decisions resume through this command.
+   * @param phaseRunId - the parked phase run.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection.
+   */
+  @Remote('resumePhaseFromAwaiting')
+  async resumePhaseFromAwaiting(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutatePhaseRun(PhaseRunIdValue(phaseRunId), mutation, 'resumeFromAwaiting')
+  }
+
+  /**
+   * Record the phase-session id the engine opened for this run. Idempotent:
+   * the same id returns the stored record without a write; a changed id (a
+   * retry opening a new session) updates the binding. The M3 clarification
+   * service reads this id to inject answered clarification payloads.
+   * @param phaseRunId - the phase run whose session id to record.
+   * @param sessionId - the phase-session id.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection.
+   */
+  @Remote('recordPhaseSession')
+  async recordPhaseSession(phaseRunId: string, sessionId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutateSessionId(PhaseRunIdValue(phaseRunId), this.resolveText(sessionId, 'sessionId'), mutation)
+  }
+
+  /**
+   * Freeze one phase run's scheduling: the engine dispatches no new work for
+   * a frozen run while in-flight atomic actions still settle. The M2
+   * edit-lock service sets this while a lease covers a version the run's
+   * registered inputs consume.
+   * @param phaseRunId - the phase run to freeze.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection with the flag set.
+   */
+  @Remote('freezePhaseScheduling')
+  async freezePhaseScheduling(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutateSchedulingFlag(PhaseRunIdValue(phaseRunId), mutation, true)
+  }
+
+  /**
+   * Clear one phase run's scheduling freeze; the engine wakes on the
+   * committed change and resumes dispatching.
+   * @param phaseRunId - the frozen phase run.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection with the flag cleared.
+   */
+  @Remote('clearPhaseScheduling')
+  async clearPhaseScheduling(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutateSchedulingFlag(PhaseRunIdValue(phaseRunId), mutation, false)
+  }
+
+  /**
+   * Annotate recorded gate-check verdicts stale: the M2 impact command for
+   * verdicts the closure covers. A staled verdict supports no pass decision.
+   * Idempotent: verdicts already staled are returned unchanged without a write.
+   * @param submissionId - the submission whose verdicts the closure covers.
+   * @param checkIds - the check ids to annotate; unknown ids are ignored.
+   * @param mutation - actor, reason, idempotency key of the impact command.
+   * @returns the verdicts this call staled, in storage order.
+   */
+  @Remote('markGateChecksStale')
+  async markGateChecksStale(submissionId: string, checkIds: readonly string[], mutation: TaskMutationContext): Promise<GateCheckResult[]> {
+    const id = SubmissionIdValue(this.resolveText(submissionId, 'submissionId'))
+    const wanted = checkIds.map(check => this.resolveText(check, 'checkId'))
+    return this.serialized(async () => {
+      await this.loadSubmissionOrThrow(id)
+      return this.staleGateChecks(id, wanted, provenanceOf(mutation))
+    })
+  }
+
+  /**
    * Read one task projection.
    * @param taskId - the task to read.
    * @returns the current projection.
@@ -569,6 +696,50 @@ export abstract class TaskHandle extends TypertRemoteService {
       const updated: PhaseRunRecord = {
         ...phaseRun,
         state: next,
+        revision: phaseRun.revision + 1,
+      }
+      if (!await this.savePhaseRun(updated, provenance)) throw new TaskError('stale-revision', 'phase-run revision moved concurrently')
+      this.emit('phase-run/updated', updated)
+      return updated
+    })
+  }
+
+  /**
+   * Load, assert revision, toggle the scheduling flag, save, and publish one
+   * phase run; a no-op returning the stored record when the flag already
+   * holds the requested value.
+   */
+  /**
+   * Load, assert revision, set the session id, save, and publish one phase
+   * run; a no-op returning the stored record when the id already holds the
+   * requested value.
+   */
+  private mutateSessionId(phaseRunId: PhaseRunId, sessionId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    const provenance = provenanceOf(mutation)
+    return this.serialized(async () => {
+      const phaseRun = await this.loadPhaseRunOrThrow(phaseRunId)
+      this.assertRevision(phaseRun, mutation)
+      if (phaseRun.sessionId === sessionId) return phaseRun
+      const updated: PhaseRunRecord = {
+        ...phaseRun,
+        sessionId,
+        revision: phaseRun.revision + 1,
+      }
+      if (!await this.savePhaseRun(updated, provenance)) throw new TaskError('stale-revision', 'phase-run revision moved concurrently')
+      this.emit('phase-run/updated', updated)
+      return updated
+    })
+  }
+
+  private mutateSchedulingFlag(phaseRunId: PhaseRunId, mutation: TaskMutationContext, frozen: boolean): Promise<PhaseRunRecord> {
+    const provenance = provenanceOf(mutation)
+    return this.serialized(async () => {
+      const phaseRun = await this.loadPhaseRunOrThrow(phaseRunId)
+      this.assertRevision(phaseRun, mutation)
+      if (phaseRun.schedulingFrozen === frozen) return phaseRun
+      const updated: PhaseRunRecord = {
+        ...phaseRun,
+        schedulingFrozen: frozen,
         revision: phaseRun.revision + 1,
       }
       if (!await this.savePhaseRun(updated, provenance)) throw new TaskError('stale-revision', 'phase-run revision moved concurrently')

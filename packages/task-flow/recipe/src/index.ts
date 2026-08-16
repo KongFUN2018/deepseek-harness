@@ -43,6 +43,7 @@ export function validateRecipePayload(payload: RecipePayload): string[] {
   for (const phase of payload.phases) {
     if (phaseIds.has(phase.phaseId)) problems.push(`duplicate phaseId "${phase.phaseId}"`)
     phaseIds.add(phase.phaseId)
+    if (typeof phase.kind !== 'string' || phase.kind.trim() === '') problems.push(`phase "${phase.phaseId}" requires a non-blank kind`)
   }
   const checkIds = new Set<string>()
   for (const check of payload.gateChecks) {

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/task-flow/recipe-engine-core/README.md
-README.md: 89bf8eb1b12c914ddbde64aa174d0923544e4140
-README.zh.md: 5969f25c4331605a35ff5f994baa4a308c07acbe
+README.md: fe52345f00069b7145fe3ad910ec292d5e48c16c
+README.zh.md: 9163e65016baa708be4fbc606d26187cd6c45adc

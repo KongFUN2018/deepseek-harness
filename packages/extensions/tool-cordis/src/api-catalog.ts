@@ -379,6 +379,80 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'attention',
+    summary: 'Attention service: the M4 persistent-decision domain, with idempotent item creation, optimistic decision and batch-confirm commands, and upstream invalidation.',
+    description: 'Attention service: the M4 persistent-decision domain, with idempotent item creation, optimistic decision and batch-confirm commands, and upstream invalidation.',
+    methods: [
+      {
+        signature: '@Remote(\'createItem\') createItem(input: CreateItemInput, actor: string, idempotencyKey: string): Promise<AttentionItem>',
+        description: 'Create one attention item. Idempotent: replaying a caller key returns the stored item; a replay with a different itemId fails loud.',
+        parameters: [{ name: 'input', description: 'the item fields; `itemId` is caller-supplied and stable.' }, { name: 'actor', description: 'the actor opening the item.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the stored item.',
+      },
+      {
+        signature: '@Remote(\'listOpen\') listOpen(): AttentionItem[]',
+        description: 'List every open item, in open order.',
+        parameters: [],
+        returns: 'the open items.',
+      },
+      {
+        signature: '@Remote(\'getItem\') getItem(itemId: string): AttentionItem | undefined',
+        description: 'Read one attention item.',
+        parameters: [{ name: 'itemId', description: 'the item identity.' }],
+        returns: 'the item, or undefined when unknown.',
+      },
+      {
+        signature: '@Remote(\'resolveDecision\') resolveDecision( itemId: string, expectedEntityRevision: number, optionId: string, actor: string, idempotencyKey: string, ): Promise<DecisionResult>',
+        description: 'Resolve one decision item against the given option. Idempotent: a replay with the same option returns `resolved`; a different option reports `already-resolved`. A stale, withdrawn, or revision-conflicted item never resolves silently.',
+        parameters: [{ name: 'itemId', description: 'the item to decide.' }, { name: 'expectedEntityRevision', description: 'the revision this decision satisfies.' }, { name: 'optionId', description: 'one of the item\'s options.' }, { name: 'actor', description: 'the deciding actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the outcome and the revision to retry against when present.',
+      },
+      {
+        signature: '@Remote(\'confirmBatch\') confirmBatch( targets: ConfirmTarget[], actor: string, idempotencyKey: string, ): Promise<ConfirmResult[]>',
+        description: 'Confirm a batch of B-class items in one pass: every still-open revision-matching item resolves, and each target reports its own outcome.',
+        parameters: [{ name: 'targets', description: 'the compare-and-set targets.' }, { name: 'actor', description: 'the confirming actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'per-item results, in request order.',
+      },
+      {
+        signature: '@Remote(\'invalidateItem\') invalidateItem( itemId: string, expectedEntityRevision: number, reason: string, actor: string, idempotencyKey: string, ): Promise<InvalidateResult>',
+        description: 'Invalidate one open item upstream: the stale-propagation trigger that makes later decisions report `stale` instead of silently resolving.',
+        parameters: [{ name: 'itemId', description: 'the item to invalidate.' }, { name: 'expectedEntityRevision', description: 'the revision this invalidation satisfies.' }, { name: 'reason', description: 'non-empty reason recorded with the invalidation.' }, { name: 'actor', description: 'the invalidating actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the outcome and the revision to retry against when present.',
+      },
+    ],
+  },
+  {
+    key: 'clarifications',
+    summary: 'Clarification service: the M3 persistent-clarification domain, with idempotent request creation, idempotent per-question partial answers, and recovered answer injection into the phase session.',
+    description: 'Clarification service: the M3 persistent-clarification domain, with idempotent request creation, idempotent per-question partial answers, and recovered answer injection into the phase session.',
+    methods: [
+      {
+        signature: '@Remote(\'createRequest\') createRequest( phaseRunId: string, questions: ClarificationQuestionInput[], actor: string, idempotencyKey: string, ): Promise<ClarificationRequest>',
+        description: 'Create one clarification request over a phase run. Idempotent: replaying a caller key with the same questions returns the stored request; a replay with different questions fails loud with conflict.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run the request clarifies.' }, { name: 'questions', description: 'the question definitions, in request order.' }, { name: 'actor', description: 'the actor opening the request.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the stored request with its assigned questions.',
+      },
+      {
+        signature: '@Remote(\'answerPartial\') answerPartial( questionId: string, expectedRevision: number, answer: string, actor: string, idempotencyKey: string, ): Promise<Answer>',
+        description: 'Record one answer for a question, at the question\'s current revision. Idempotent: replaying the same question revision with the same value returns the stored answer; a different value fails loud with conflict. When the answer completes every required question, the service injects the answer summary and resumes the phase run.',
+        parameters: [{ name: 'questionId', description: 'the question to answer.' }, { name: 'expectedRevision', description: 'the question revision the answer satisfies.' }, { name: 'answer', description: 'the answer text; may be empty.' }, { name: 'actor', description: 'the actor supplying the answer.' }, { name: 'idempotencyKey', description: 'caller-owned replay key for the journal fact.' }],
+        returns: 'the stored answer.',
+      },
+      {
+        signature: '@Remote(\'getRequest\') getRequest(requestId: string): ClarificationRequest | undefined',
+        description: 'Read one clarification request.',
+        parameters: [{ name: 'requestId', description: 'the request identity.' }],
+        returns: 'the request, or undefined when unknown.',
+      },
+      {
+        signature: '@Remote(\'listOpen\') listOpen(phaseRunId: string): ClarificationRequest[]',
+        description: 'List the open requests of one phase run, in creation order.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run.' }],
+        returns: 'the open requests.',
+      },
+    ],
+  },
+  {
     key: 'clientModules',
     summary: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index tap.',
     description: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index tap. Construction runs the activation scan synchronously — a malformed declaration or missing bundle among the already-loaded entries aggregates into one loud throw (FAILED fiber; the boot activation audit reports it).',
@@ -527,13 +601,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'deliverables',
-    summary: 'Minimal deliverable version service; the M2 deliverable-local provider replaces the linear scans and the non-Remote host seams behind the same Remote surface.',
-    description: 'Minimal deliverable version service; the M2 deliverable-local provider replaces the linear scans and the non-Remote host seams behind the same Remote surface.',
+    summary: 'Deliverable-local service: the M2 deliverable domain behind the M1 service key and Remote surface, with idempotent saves, write-chain-owned dependency edges, and persisted multi-root impact closures.',
+    description: 'Deliverable-local service: the M2 deliverable domain behind the M1 service key and Remote surface, with idempotent saves, write-chain-owned dependency edges, and persisted multi-root impact closures.',
     methods: [
       {
-        signature: '@Remote(\'saveVersion\') saveVersion( deliverableId: string, expectedBaseVersion: string | null, sourceSubmissionId: string | null, ): Promise<DeliverableVersion>',
-        description: 'Create one immutable version of a deliverable. The caller names the base version it built on; a base that is no longer the latest, or whose state is not `current`, rejects with `stale-write`.',
-        parameters: [{ name: 'deliverableId', description: 'raw deliverable identifier.' }, { name: 'expectedBaseVersion', description: 'the latest version the caller built on; `null` on a root version.' }, { name: 'sourceSubmissionId', description: 'raw submission identifier that produced the version, when known.' }],
+        signature: '@Remote(\'saveVersion\') saveVersion( deliverableId: string, expectedBaseVersion: string | null, sourceSubmissionId: string | null, idempotencyKey?: string | null, ): Promise<DeliverableVersion>',
+        description: 'Create one immutable version of a deliverable. The caller names the base version it built on; a base that is no longer the latest version rejects with `stale-write`. A staled head remains chainable: the successor re-validates the deliverable after an impact retires the head\'s conclusions. A save replaying a caller idempotency key with identical fields returns the stored version; with different fields it fails loud with `idempotency-conflict`, the same rule the journal applies to facts.',
+        parameters: [{ name: 'deliverableId', description: 'raw deliverable identifier.' }, { name: 'expectedBaseVersion', description: 'the latest version the caller built on; `null` on a root version.' }, { name: 'sourceSubmissionId', description: 'raw submission identifier that produced the version, when known.' }, { name: 'idempotencyKey', description: 'caller-owned replay key; omit for a fresh save.' }],
         returns: 'the stored immutable version.',
       },
       {
@@ -543,10 +617,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the current input versions.',
       },
       {
-        signature: '@Remote(\'invalidateDownstream\') invalidateDownstream(rootVersionIds: string[]): Promise<InvalidateDownstreamResult>',
-        description: 'Mark every version of each root\'s chain newer than the root stale. The full transitive impact closure and ImpactSnapshot are M2.',
-        parameters: [{ name: 'rootVersionIds', description: 'raw version ids whose chains lose currency.' }],
-        returns: 'the ids newly transitioned to stale.',
+        signature: '@Remote(\'invalidateDownstream\') invalidateDownstream(rootVersionIds: string[]): Promise<ImpactSnapshot>',
+        description: 'Invalidate everything downstream of the named roots: each root and its transitive consumers over `dependsOn` edges transition to `stale`; already-stale subgraphs are skipped, and chain lineage alone is not an impact edge — an upstream edit\'s own successor survives. The closure is persisted as an `ImpactSnapshot` covering the newly staled versions grouped per deliverable, the phase runs whose registered inputs lost currency, and the recorded gate verdicts those runs\' submissions produced.',
+        parameters: [{ name: 'rootVersionIds', description: 'raw version ids whose downstream loses currency.' }],
+        returns: 'the persisted impact snapshot.',
       },
       {
         signature: 'async recordPhaseInputs(phaseRunId: string, versionIds: string[]): Promise<void>',
@@ -554,10 +628,27 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'phaseRunId', description: 'raw phase-run identifier.' }, { name: 'versionIds', description: 'raw input version ids in stable order.' }],
       },
       {
+        signature: 'listConsumingPhaseRuns(targetVersionId: string): PhaseRunId[]',
+        description: 'List the phase runs whose registered inputs include one version. Host-side seam: the edit-lock service freezes exactly these runs while the version is under a lease.',
+        parameters: [{ name: 'targetVersionId', description: 'raw version id the runs consume.' }],
+        returns: 'the consuming phase-run ids.',
+      },
+      {
+        signature: 'async registerVersionDependencies(versionId: string, dependsOn: readonly DeliverableVersionRef[]): Promise<void>',
+        description: 'Register the dependency edges of one version: the input versions its producing submission consumed. Host-side seam owned by the task write chain at acceptance — executors never declare edges. Registering the same refs twice is a no-op; different refs for the same version fail loud.',
+        parameters: [{ name: 'versionId', description: 'raw version identifier the edges complete.' }, { name: 'dependsOn', description: 'the input version refs the producing submission consumed.' }],
+      },
+      {
         signature: 'getVersion(versionId: string): DeliverableVersion | undefined',
         description: 'Read one version by identity; `undefined` when absent. Host-side seam for the task write chain\'s output-exists and source-matches checks.',
         parameters: [{ name: 'versionId', description: 'raw version id.' }],
         returns: 'the stored version, or `undefined`.',
+      },
+      {
+        signature: 'getImpactSnapshot(snapshotId: string): ImpactSnapshot | undefined',
+        description: 'Read one persisted impact snapshot by identity; `undefined` when absent. Host-side read for impact consumers and replay.',
+        parameters: [{ name: 'snapshotId', description: 'raw snapshot id.' }],
+        returns: 'the stored snapshot, or `undefined`.',
       },
     ],
   },
@@ -595,6 +686,37 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [],
         returns: 'the created sandbox after the configured cwd exists.',
         throws: ['when E2B rejects creation or the service is disposing.'],
+      },
+    ],
+  },
+  {
+    key: 'editLock',
+    summary: 'Edit-lock service: durable lease records over deliverable versions.',
+    description: 'Edit-lock service: durable lease records over deliverable versions.',
+    methods: [
+      {
+        signature: '@Remote(\'acquire\') async acquire(deliverableId: string, targetVersionId: string, owner: string, ttlMs: number, taskId?: string | null): Promise<EditLease>',
+        description: 'Acquire a lease on one deliverable version. First write wins: a held target fails loud with the current holder and expiry. Acquiring also freezes scheduling of the phase runs that consume the target version.',
+        parameters: [{ name: 'deliverableId', description: 'raw deliverable identifier.' }, { name: 'targetVersionId', description: 'raw version the holder edits; must belong to the deliverable.' }, { name: 'owner', description: 'actor holding the lease.' }, { name: 'ttlMs', description: 'lease time-to-live in milliseconds.' }, { name: 'taskId', description: 'optional owning task; cancelled tasks release their leases.' }],
+        returns: 'the stored lease.',
+      },
+      {
+        signature: '@Remote(\'renew\') async renew(leaseId: string, expectedRevision: number, ttlMs: number): Promise<EditLease>',
+        description: 'Renew a lease: advance renewedAt and expiresAt. A lapsed lease fails loud.',
+        parameters: [{ name: 'leaseId', description: 'raw lease identifier.' }, { name: 'expectedRevision', description: 'the lease\'s current compare-and-set revision.' }, { name: 'ttlMs', description: 'renewed time-to-live in milliseconds.' }],
+        returns: 'the renewed lease.',
+      },
+      {
+        signature: '@Remote(\'release\') async release(leaseId: string, expectedRevision: number, actor: string): Promise<EditLease>',
+        description: 'Release a lease explicitly and clear the consumer freezes it holds. Releasing an already-released or expired lease returns it unchanged.',
+        parameters: [{ name: 'leaseId', description: 'raw lease identifier.' }, { name: 'expectedRevision', description: 'the lease\'s current compare-and-set revision.' }, { name: 'actor', description: 'actor releasing the lease.' }],
+        returns: 'the released lease.',
+      },
+      {
+        signature: '@Remote(\'listActive\') listActive(taskId?: string | null): EditLease[]',
+        description: 'List active leases, optionally filtered to one task.',
+        parameters: [{ name: 'taskId', description: 'optional owning task filter.' }],
+        returns: 'the active leases, newest expiry last in no particular order.',
       },
     ],
   },
@@ -678,6 +800,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'gate',
+    summary: 'Watches gate-running phase runs and parks any run whose recipe declares a B/C check for the phase, awaiting an external decision.',
+    description: 'Watches gate-running phase runs and parks any run whose recipe declares a B/C check for the phase, awaiting an external decision. A-check-only runs pass through untouched so the engine can settle them.',
+    methods: [],
+  },
+  {
     key: 'goals',
     summary: 'Goal service (`ctx.goals`) backed exclusively by the owning session log.',
     description: 'Goal service (`ctx.goals`) backed exclusively by the owning session log.',
@@ -742,6 +870,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Create one Goal through the remote boundary.',
         parameters: [{ name: 'agent', description: 'exact live Agent resolved from the wire identity.' }, { name: 'request', description: 'objective and optional round cap.' }],
         returns: 'the created Goal identity.',
+      },
+    ],
+  },
+  {
+    key: 'impactPropagation',
+    summary: 'Impact-propagation service: composes the frozen task commands over one snapshot; owns no durable state of its own.',
+    description: 'Impact-propagation service: composes the frozen task commands over one snapshot; owns no durable state of its own.',
+    methods: [
+      {
+        signature: '@Remote(\'apply\') async apply(snapshot: ImpactSnapshot, mutation: TaskMutationContext): Promise<ImpactApplication>',
+        description: 'Apply one impact snapshot to the task plane. Phase runs the snapshot covers move into terminal `stale` (already-stale runs are skipped), then the covered gate verdicts are annotated stale. The engine wakes on the committed phase-run changes and re-opens covered phases as new runs.',
+        parameters: [{ name: 'snapshot', description: 'the impact snapshot `invalidateDownstream` returned.' }, { name: 'mutation', description: 'actor, reason, idempotency key of the applying flow.' }],
+        returns: 'the task-plane writes this call performed.',
       },
     ],
   },
@@ -1023,26 +1164,51 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'recipeMultiphase',
+    summary: 'Registers executors by phase kind and dispatches each phase assignment to the executor registered for its kind.',
+    description: 'Registers executors by phase kind and dispatches each phase assignment to the executor registered for its kind. On construction it registers one aggregating executor into the recipe engine, so the engine\'s single slot fans out by `RecipePhaseSpec.kind` without any engine change.',
+    methods: [
+      {
+        signature: 'registerExecutor(phaseKind: string, executor: PhaseExecutor): () => void',
+        description: 'Register one executor for a phase kind. Disposal removes it (HMR-safe).',
+        parameters: [{ name: 'phaseKind', description: 'the `RecipePhaseSpec.kind` value this executor serves.' }, { name: 'executor', description: 'the executor performing every phase of that kind.' }],
+        returns: 'the disposer removing the registration.',
+      },
+      {
+        signature: 'aggregatingExecutor(): PhaseExecutor',
+        description: 'The aggregating executor to register into the engine\'s single slot. It dispatches each assignment to the executor registered for the assignment phase\'s kind.',
+        parameters: [],
+        returns: 'a `PhaseExecutor` routing by `assignment.phase.kind`.',
+      },
+      {
+        signature: 'listKinds(): string[]',
+        description: 'The phase kinds with a registered executor, in registration order.',
+        parameters: [],
+        returns: 'the registered kinds.',
+      },
+    ],
+  },
+  {
     key: 'recipes',
     summary: 'Immutable recipe revision registry.',
     description: 'Immutable recipe revision registry.',
     methods: [
       {
         signature: '@Remote(\'register\') register(recipeId: string, revision: number, payload: RecipePayload): RecipeRevision',
-        description: 'Register one immutable revision; the same payload under the same identity is idempotent, a different payload under a taken identity fails.',
-        parameters: [{ name: 'recipeId', description: 'raw recipe identifier.' }, { name: 'revision', description: 'positive revision number.' }, { name: 'payload', description: 'canonical revision payload.' }],
+        description: 'Register one immutable revision; the same payload under the same identity is idempotent, a different payload under a taken identity fails. The id is trimmed to its canonical form before keying, so padded spellings of one id address the same revision.',
+        parameters: [{ name: 'recipeId', description: 'recipe identifier; surrounding whitespace is trimmed.' }, { name: 'revision', description: 'positive revision number.' }, { name: 'payload', description: 'canonical revision payload.' }],
         returns: 'the stored revision.',
       },
       {
         signature: '@Remote(\'getPinned\') getPinned(identity: RecipeIdentity): RecipeRevision',
         description: 'Read one pinned identity, verifying the stored hash against the payload.',
-        parameters: [{ name: 'identity', description: 'recipe id plus exact revision.' }],
+        parameters: [{ name: 'identity', description: 'recipe id plus exact revision; the id is trimmed to the canonical form before keying, matching `register`.' }],
         returns: 'the stored revision.',
       },
       {
         signature: '@Remote(\'latest\') latest(recipeId: string): RecipeRevision | undefined',
         description: 'Highest registered revision of one recipe; new-task creation only.',
-        parameters: [{ name: 'recipeId', description: 'raw recipe identifier.' }],
+        parameters: [{ name: 'recipeId', description: 'recipe identifier; surrounding whitespace is trimmed.' }],
         returns: 'the latest revision, or `undefined` when the recipe is unknown.',
       },
       {
@@ -1940,6 +2106,54 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the post-commit phase-run projection.',
       },
       {
+        signature: '@Remote(\'markPhaseStale\') async markPhaseStale(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Mark one phase run stale: the M2 impact command. A stale run is terminal; the engine re-opens the phase as a new run. Runs in `running` or `submitting` reject — an in-flight atomic action settles per the M1 quiescence contract.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run the impact closure covers.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'markPhaseAwaitingInput\') async markPhaseAwaitingInput(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Park one gate-running phase run in `awaiting-input`: the M3 clarification state. The clarification service resolves the inputs and resumes the run.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run awaiting clarification input.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'markPhaseAwaitingDecision\') async markPhaseAwaitingDecision(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Park one gate-running phase run in `awaiting-decision`: the M3 complex-gate state for B/C checks. The attention service decides and resumes the run.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run awaiting a B/C decision.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'resumePhaseFromAwaiting\') async resumePhaseFromAwaiting(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Return a parked phase run from `awaiting-input` or `awaiting-decision` to `gate-running`, so the engine re-runs the gate. Clarification completion and attention decisions resume through this command.',
+        parameters: [{ name: 'phaseRunId', description: 'the parked phase run.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'recordPhaseSession\') async recordPhaseSession(phaseRunId: string, sessionId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Record the phase-session id the engine opened for this run. Idempotent: the same id returns the stored record without a write; a changed id (a retry opening a new session) updates the binding. The M3 clarification service reads this id to inject answered clarification payloads.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run whose session id to record.' }, { name: 'sessionId', description: 'the phase-session id.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'freezePhaseScheduling\') async freezePhaseScheduling(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Freeze one phase run\'s scheduling: the engine dispatches no new work for a frozen run while in-flight atomic actions still settle. The M2 edit-lock service sets this while a lease covers a version the run\'s registered inputs consume.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run to freeze.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection with the flag set.',
+      },
+      {
+        signature: '@Remote(\'clearPhaseScheduling\') async clearPhaseScheduling(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Clear one phase run\'s scheduling freeze; the engine wakes on the committed change and resumes dispatching.',
+        parameters: [{ name: 'phaseRunId', description: 'the frozen phase run.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection with the flag cleared.',
+      },
+      {
+        signature: '@Remote(\'markGateChecksStale\') async markGateChecksStale(submissionId: string, checkIds: readonly string[], mutation: TaskMutationContext): Promise<GateCheckResult[]>',
+        description: 'Annotate recorded gate-check verdicts stale: the M2 impact command for verdicts the closure covers. A staled verdict supports no pass decision. Idempotent: verdicts already staled are returned unchanged without a write.',
+        parameters: [{ name: 'submissionId', description: 'the submission whose verdicts the closure covers.' }, { name: 'checkIds', description: 'the check ids to annotate; unknown ids are ignored.' }, { name: 'mutation', description: 'actor, reason, idempotency key of the impact command.' }],
+        returns: 'the verdicts this call staled, in storage order.',
+      },
+      {
         signature: '@Remote(\'getTask\') async getTask(taskId: string): Promise<TaskRecord | undefined>',
         description: 'Read one task projection.',
         parameters: [{ name: 'taskId', description: 'the task to read.' }],
@@ -2334,32 +2548,45 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'workbenchHost',
-    summary: 'Workbench attention inbox (`ctx.workbenchHost`).',
-    description: 'Workbench attention inbox (`ctx.workbenchHost`).',
+    summary: 'Workbench attention inbox (`ctx.workbenchHost`): the M4 client-safe projection over the persistent attention service.',
+    description: 'Workbench attention inbox (`ctx.workbenchHost`): the M4 client-safe projection over the persistent attention service.',
     methods: [
       {
         signature: '@Remote(\'listSnapshot\') listSnapshot(): WorkbenchSnapshot',
-        description: 'Read the whole inbox with per-item compare-and-set revisions.',
+        description: 'Read the whole open inbox with per-item compare-and-set revisions.',
         parameters: [],
         returns: 'the current snapshot.',
       },
       {
-        signature: '@Remote(\'confirmBatch\') confirmBatch(request: BatchConfirmRequest): BatchConfirmResponse',
-        description: 'Confirm a batch of B-class items in one commit: every still-open revision-matching item resolves, and each target reports its own outcome.',
+        signature: '@Remote(\'confirmBatch\') async confirmBatch(request: BatchConfirmRequest): Promise<BatchConfirmResponse>',
+        description: 'Confirm a batch of B-class items in one pass: every still-open revision-matching item resolves, and each target reports its own outcome.',
         parameters: [{ name: 'request', description: 'actor plus the compare-and-set targets.' }],
         returns: 'per-item results and the post-commit snapshot version.',
       },
       {
-        signature: '@Remote(\'resolveDecision\') resolveDecision(request: ResolveDecisionRequest): ResolveDecisionResponse',
+        signature: '@Remote(\'resolveDecision\') async resolveDecision(request: ResolveDecisionRequest): Promise<ResolveDecisionResponse>',
         description: 'Resolve one C-class decision item; C items are never batched.',
         parameters: [{ name: 'request', description: 'compare-and-set target plus the recorded decision text.' }],
         returns: 'the single-item outcome and the post-commit snapshot version.',
       },
       {
-        signature: '@Remote(\'invalidateItem\') invalidateItem(request: InvalidateItemRequest): InvalidateItemResponse',
+        signature: '@Remote(\'invalidateItem\') async invalidateItem(request: InvalidateItemRequest): Promise<InvalidateItemResponse>',
         description: 'Invalidate one open item upstream: the stale-propagation trigger that makes later confirms report `stale` instead of silently resolving.',
         parameters: [{ name: 'request', description: 'compare-and-set target plus the recorded reason.' }],
         returns: 'the single-item outcome and the post-commit snapshot version.',
+      },
+    ],
+  },
+  {
+    key: 'workbenchHostStream',
+    summary: 'Attention incremental stream: the M4 cursor-based change feed over the persistent attention inbox, derived from the append-only workbench journal.',
+    description: 'Attention incremental stream: the M4 cursor-based change feed over the persistent attention inbox, derived from the append-only workbench journal.',
+    methods: [
+      {
+        signature: '@Remote(\'listIncremental\') listIncremental(cursor?: number): IncrementalPage',
+        description: 'Read the attention change events after a journal cursor and the new cursor.',
+        parameters: [{ name: 'cursor', description: 'exclusive journal lower bound; omitted or non-positive replays the whole stream.' }],
+        returns: 'the events in journal order plus this boot\'s stream id and cursor.',
       },
     ],
   },
@@ -2979,6 +3206,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
   },
   {
+    name: 'Answer',
+    declaration: 'export interface Answer {\n    readonly questionId: ClarificationQuestionId;\n    readonly actor: string;\n    readonly value: string;\n    readonly submittedAt: number;\n    readonly revision: number;\n}',
+  },
+  {
     name: 'ApprovalOutcome',
     declaration: 'export type ApprovalOutcome = \'allowed-once\' | \'rejected\' | \'cancelled\' | \'unavailable\';',
   },
@@ -3043,16 +3274,32 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
   },
   {
-    name: 'AttentionItemKind',
-    declaration: 'export type AttentionItemKind = \'b-confirm\' | \'c-decision\';',
+    name: 'AttentionItem',
+    declaration: 'export interface AttentionItem {\n    readonly itemId: AttentionItemId;\n    readonly taskId: TaskId;\n    readonly runId?: TaskRunId;\n    readonly phaseRunId?: PhaseRunId;\n    readonly submissionId?: SubmissionId;\n    readonly checkId?: string;\n    readonly kind: AttentionItemKind;\n    readonly decisionKind: string;\n    readonly impactSnapshot?: string;\n    readonly options: readonly string[];\n    readonly state: AttentionItemState;\n    readonly entityRevision: number;\n    readonly openedAt: number;\n    readonly resolvedAt?: number;\n    readonly resolvedBy?: string;\n    readonly outcome?: string;\n    readonly reversibleUntil?: number;\n}',
+  },
+  {
+    name: 'AttentionItemId',
+    declaration: 'export type AttentionItemId = Branded<\'AttentionItemId\'>;',
+  },
+  {
+    name: 'AttentionItemState',
+    declaration: 'export type AttentionItemState = \'open\' | \'resolved\' | \'invalidated\' | \'stale\';',
   },
   {
     name: 'AttentionItemStatus',
-    declaration: 'export type AttentionItemStatus = \'open\' | \'invalidated\' | \'resolved\';',
+    declaration: 'export type AttentionItemStatus = \'open\' | \'invalidated\' | \'resolved\' | \'stale\';',
   },
   {
     name: 'AttentionItemView',
     declaration: 'export interface AttentionItemView {\n    readonly itemId: WorkbenchItemId;\n    readonly kind: AttentionItemKind;\n    readonly status: AttentionItemStatus;\n    readonly entityRevision: number;\n    readonly title: string;\n    readonly decision?: string;\n}',
+  },
+  {
+    name: 'AttentionStreamEvent',
+    declaration: 'export interface AttentionStreamEvent {\n    readonly cursor: number;\n    readonly previousCursor: number;\n    readonly eventId: string;\n    readonly entityKind: \'attention\';\n    readonly entityId: string;\n    readonly entityRevision: number;\n    readonly operation: AttentionStreamOperation;\n    readonly payload: JournalPayload;\n}',
+  },
+  {
+    name: 'AttentionStreamOperation',
+    declaration: 'export type AttentionStreamOperation = \'created\' | \'resolved\' | \'invalidated\' | \'updated\';',
   },
   {
     name: 'BackendRegistry',
@@ -3097,6 +3344,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CancelOptions',
     declaration: 'export interface CancelOptions {\n    keepInbox?: boolean | undefined;\n}',
+  },
+  {
+    name: 'ClarificationQuestionId',
+    declaration: 'export type ClarificationQuestionId = Branded<\'ClarificationQuestionId\'>;',
+  },
+  {
+    name: 'ClarificationQuestionInput',
+    declaration: 'export interface ClarificationQuestionInput {\n    readonly phaseId: string;\n    readonly required: boolean;\n    readonly order: number;\n    readonly text: string;\n}',
+  },
+  {
+    name: 'ClarificationRequest',
+    declaration: 'export interface ClarificationRequest {\n    readonly requestId: ClarificationRequestId;\n    readonly phaseRunId: PhaseRunId;\n    readonly taskId: TaskId;\n    readonly questionIds: readonly ClarificationQuestionId[];\n    readonly injectedEventId?: number;\n    readonly state: ClarificationRequestState;\n    readonly revision: number;\n    readonly createdAt: number;\n}',
+  },
+  {
+    name: 'ClarificationRequestId',
+    declaration: 'export type ClarificationRequestId = Branded<\'ClarificationRequestId\'>;',
+  },
+  {
+    name: 'ClarificationRequestState',
+    declaration: 'export type ClarificationRequestState = \'open\' | \'injected\' | \'closed\';',
   },
   {
     name: 'ClientResponse',
@@ -3191,6 +3458,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ConfinedSandboxMode = Exclude<SandboxMode, \'danger-full-access\'>;',
   },
   {
+    name: 'ConfirmResult',
+    declaration: 'export interface ConfirmResult {\n    readonly itemId: AttentionItemId;\n    readonly outcome: DecisionOutcome;\n    readonly currentRevision?: number;\n}',
+  },
+  {
+    name: 'ConfirmTarget',
+    declaration: 'export interface ConfirmTarget {\n    readonly itemId: AttentionItemId;\n    readonly expectedEntityRevision: number;\n}',
+  },
+  {
     name: 'ContentBlockMap',
     declaration: 'export interface ContentBlockMap {\n    \'text\': TextBlock;\n    \'reasoning\': ReasoningBlock;\n    \'image\': ImageBlock;\n    \'tool-call\': ToolCallBlock;\n    \'tool-result\': ToolResultBlock;\n}',
   },
@@ -3271,6 +3546,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CreateGoalResult {\n    readonly ref: GoalRef;\n}',
   },
   {
+    name: 'CreateItemInput',
+    declaration: 'export interface CreateItemInput {\n    readonly itemId: AttentionItemId;\n    readonly taskId: TaskId;\n    readonly runId?: TaskRunId;\n    readonly phaseRunId?: PhaseRunId;\n    readonly submissionId?: SubmissionId;\n    readonly checkId?: string;\n    readonly kind: AttentionItemKind;\n    readonly decisionKind: string;\n    readonly options: readonly string[];\n}',
+  },
+  {
     name: 'CreateSessionOptions',
     declaration: 'export interface CreateSessionOptions {\n    readonly seed?: readonly SessionEvent[];\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly createdAt?: number;\n        readonly seedLength?: number;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n}',
   },
@@ -3283,12 +3562,12 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
   },
   {
-    name: 'DecisionOutcome',
-    declaration: 'export type DecisionOutcome = BatchConfirmOutcome;',
+    name: 'DecisionResult',
+    declaration: 'export interface DecisionResult {\n    readonly outcome: DecisionOutcome;\n    readonly currentRevision?: number;\n}',
   },
   {
     name: 'DeliverableVersion',
-    declaration: 'export interface DeliverableVersion {\n    readonly versionId: DeliverableVersionId;\n    readonly deliverableId: DeliverableId;\n    readonly versionNumber: number;\n    readonly baseVersionId?: DeliverableVersionId;\n    readonly sourceSubmissionId?: SubmissionId;\n    readonly state: DeliverableVersionState;\n    readonly entityRevision: number;\n    readonly createdAt: number;\n}',
+    declaration: 'export interface DeliverableVersion {\n    readonly versionId: DeliverableVersionId;\n    readonly deliverableId: DeliverableId;\n    readonly versionNumber: number;\n    readonly baseVersionId?: DeliverableVersionId;\n    readonly sourceSubmissionId?: SubmissionId;\n    readonly dependsOn?: readonly DeliverableVersionRef[];\n    readonly state: DeliverableVersionState;\n    readonly entityRevision: number;\n    readonly createdAt: number;\n}',
   },
   {
     name: 'DeliverableVersionRef',
@@ -3403,6 +3682,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface EditGoalRequest {\n    readonly objective?: string;\n    readonly maxGoalRounds?: number;\n}',
   },
   {
+    name: 'EditLease',
+    declaration: 'export interface EditLease {\n    readonly leaseId: EditLeaseId;\n    readonly taskId?: TaskId;\n    readonly deliverableId: DeliverableId;\n    readonly targetVersionId: DeliverableVersionId;\n    readonly owner: string;\n    readonly acquiredAt: number;\n    readonly renewedAt: number;\n    readonly expiresAt: number;\n    readonly entityRevision: number;\n    readonly state: EditLeaseState;\n}',
+  },
+  {
+    name: 'EditLeaseId',
+    declaration: 'export type EditLeaseId = Branded<\'EditLeaseId\'>;',
+  },
+  {
+    name: 'EditLeaseState',
+    declaration: 'export type EditLeaseState = \'active\' | \'released\' | \'expired\';',
+  },
+  {
     name: 'EpochHeader',
     declaration: 'export interface EpochHeader {\n    config: LlmCallConfig;\n    adapterDefaults?: LlmCallConfigAdapterDefaults;\n    system?: string;\n    tools?: ToolSchema[];\n}',
   },
@@ -3468,7 +3759,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'GateCheckResult',
-    declaration: 'export interface GateCheckResult {\n    readonly submissionId: SubmissionId;\n    readonly checkId: string;\n    readonly passed: boolean;\n    readonly detail?: string;\n    readonly recordedAt: number;\n}',
+    declaration: 'export interface GateCheckResult {\n    readonly submissionId: SubmissionId;\n    readonly checkId: string;\n    readonly passed: boolean;\n    readonly detail?: string;\n    readonly recordedAt: number;\n    readonly stale?: boolean;\n    readonly uncoveredScope?: readonly string[];\n    readonly evidenceRefs?: readonly string[];\n}',
   },
   {
     name: 'GenerateOptions',
@@ -3527,6 +3818,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ImageMediaType = \'image/png\' | \'image/jpeg\' | \'image/webp\' | \'image/gif\';',
   },
   {
+    name: 'ImpactApplication',
+    declaration: 'export interface ImpactApplication {\n    readonly staledPhaseRuns: readonly PhaseRunRecord[];\n    readonly staledGateChecks: readonly GateCheckResult[];\n}',
+  },
+  {
+    name: 'ImpactSnapshot',
+    declaration: 'export interface ImpactSnapshot {\n    readonly snapshotId: ImpactSnapshotId;\n    readonly roots: readonly DeliverableVersionId[];\n    readonly staledVersions: readonly ImpactStaledVersions[];\n    readonly affectedPhaseRuns: readonly PhaseRunId[];\n    readonly staledGateChecks: readonly ImpactStaledGateChecks[];\n    readonly createdAt: number;\n}',
+  },
+  {
+    name: 'ImpactSnapshotId',
+    declaration: 'export type ImpactSnapshotId = Branded<\'ImpactSnapshotId\'>;',
+  },
+  {
+    name: 'ImpactStaledGateChecks',
+    declaration: 'export interface ImpactStaledGateChecks {\n    readonly submissionId: SubmissionId;\n    readonly checkIds: readonly string[];\n}',
+  },
+  {
+    name: 'ImpactStaledVersions',
+    declaration: 'export interface ImpactStaledVersions {\n    readonly deliverableId: DeliverableId;\n    readonly versionIds: readonly DeliverableVersionId[];\n}',
+  },
+  {
     name: 'Inbox',
     declaration: 'export class Inbox {\n    constructor(private readonly session: Session, private readonly notifications: InboxNotifications);\n    get nextTurn(): readonly UserMessage[];\n    get nextStep(): readonly UserMessage[];\n    get hasPending(): boolean;\n    clear(): void;\n    claim(target: InboxTarget, turn: number): UserMessage[];\n    append(target: InboxTarget, message: UserMessage): void;\n    prepend(target: InboxTarget, message: UserMessage): void;\n    replace(messageId: MessageId, newMessage: UserMessage): boolean;\n    remove(messageId: MessageId): boolean;\n    splice(target: InboxTarget, start: number, deleteCount: number, inserted: UserMessage[]): UserMessage[];\n}',
   },
@@ -3539,8 +3850,8 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type InboxTarget = \'next-turn\' | \'next-step\';',
   },
   {
-    name: 'InvalidateDownstreamResult',
-    declaration: 'export interface InvalidateDownstreamResult {\n    readonly invalidated: DeliverableVersionId[];\n}',
+    name: 'IncrementalPage',
+    declaration: 'export interface IncrementalPage {\n    readonly streamId: string;\n    readonly cursor: number;\n    readonly events: readonly AttentionStreamEvent[];\n}',
   },
   {
     name: 'InvalidateItemRequest',
@@ -3551,8 +3862,8 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface InvalidateItemResponse {\n    readonly snapshotVersion: number;\n    readonly outcome: InvalidateOutcome;\n    readonly currentRevision?: number;\n}',
   },
   {
-    name: 'InvalidateOutcome',
-    declaration: 'export type InvalidateOutcome = \'invalidated\' | \'conflict\' | \'stale\' | \'withdrawn\' | \'already-resolved\';',
+    name: 'InvalidateResult',
+    declaration: 'export interface InvalidateResult {\n    readonly outcome: InvalidateOutcome;\n    readonly currentRevision?: number;\n}',
   },
   {
     name: 'InvariantFailure',
@@ -3920,7 +4231,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PhaseRunRecord',
-    declaration: 'export interface PhaseRunRecord {\n    readonly phaseRunId: PhaseRunId;\n    readonly runId: TaskRunId;\n    readonly taskId: TaskId;\n    readonly phaseId: string;\n    readonly state: PhaseRunState;\n    readonly revision: number;\n    readonly activeSubmissionId?: SubmissionId;\n    readonly schedulingFrozen?: boolean;\n}',
+    declaration: 'export interface PhaseRunRecord {\n    readonly phaseRunId: PhaseRunId;\n    readonly runId: TaskRunId;\n    readonly taskId: TaskId;\n    readonly phaseId: string;\n    readonly state: PhaseRunState;\n    readonly revision: number;\n    readonly activeSubmissionId?: SubmissionId;\n    readonly sessionId?: string;\n    readonly schedulingFrozen?: boolean;\n}',
   },
   {
     name: 'PhaseRunState',
@@ -4056,7 +4367,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'RecipePhaseSpec',
-    declaration: 'export interface RecipePhaseSpec {\n    readonly phaseId: string;\n    readonly goal: string;\n    readonly inputs: readonly string[];\n    readonly outputs: readonly string[];\n    readonly submissionCriteria: readonly string[];\n}',
+    declaration: 'export interface RecipePhaseSpec {\n    readonly phaseId: string;\n    readonly kind: string;\n    readonly goal: string;\n    readonly inputs: readonly string[];\n    readonly outputs: readonly string[];\n    readonly submissionCriteria: readonly string[];\n}',
   },
   {
     name: 'RecipeRevision',

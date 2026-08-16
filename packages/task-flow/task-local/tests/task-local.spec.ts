@@ -5,7 +5,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import RecipeRegistry, { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recipe'
-import DeliverableService, { DeliverableId } from '@deepseek-ai/dsh-deliverable-minimal'
+import DeliverableService, { DeliverableId } from '@deepseek-ai/dsh-deliverable-local'
 import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
 import type {
   GateCheckResult,

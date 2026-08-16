@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-15-cross-session-workbench-attention-channel.md
-2026-08-15-cross-session-workbench-attention-channel.md: 5400134d1e8d9836a984f44d5464d4b16386e4c0
-2026-08-15-cross-session-workbench-attention-channel.zh.md: fb678444e25c13cfeebffa2086a7ec7c071d5c00
+2026-08-15-cross-session-workbench-attention-channel.md: ba748b358befe535731fa10d9c44fd5bfe1dfe64
+2026-08-15-cross-session-workbench-attention-channel.zh.md: cbdf0632366bc7a808122e17275fe13d9da7d859

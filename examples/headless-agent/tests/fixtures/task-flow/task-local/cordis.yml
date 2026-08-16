@@ -24,8 +24,8 @@
 - id: workbench-journal
   name: '@deepseek-ai/dsh-workbench-journal'
 
-- id: deliverable-minimal
-  name: '@deepseek-ai/dsh-deliverable-minimal'
+- id: deliverable-local
+  name: '@deepseek-ai/dsh-deliverable-local'
 
 - id: task-local
   name: '@deepseek-ai/dsh-task-local'
