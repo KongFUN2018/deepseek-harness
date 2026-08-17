@@ -1,8 +1,13 @@
-- dialog "Decision Inbox":
-  - heading "Decision Inbox" [level=2]
-  - button "Close":
-    - img
+- dialog "Task Flow":
+  - separator "Drag to resize"
+  - text: Task Flow
+  - button "Close"
+  - tablist:
+    - tab "Tasks"
+    - tab "Inbox 2" [selected]
+    - tab "Detail"
   - alert: 1 item(s) not confirmed (conflict or already handled); resynced
+  - heading "Machine verdict + human confirm" [level=3]
   - list:
     - listitem:
       - checkbox "wbx-bravo"
@@ -10,5 +15,7 @@
     - listitem:
       - checkbox "wbx-delta"
       - text: wbx-delta-gate confirm · open · rev 1
+  - text: 0 selected
+  - button "Clear" [disabled]
   - button "Confirm selected" [disabled]
   - button "Refresh"

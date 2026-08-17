@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 /**
- * The board plugin's halves. Presentation: the footer trigger opens the
- * panel, rows show id, state word, and revision, verbs fire the command
- * callback with the row id, refresh reaches its callback, the rail variant
- * renders when the sidebar collapses, the loading/empty/failed panels render
- * their copy, the command-error line carries the failure code, and the close
- * control dismisses the panel. Browser half on a real SlotRegistry with a
- * scripted tasks Remote: the footer entry registers (fiber teardown removes
- * it — HMR safety), dictionaries register per locale, and the boot load
- * reaches the Remote. The node half is inert; the invariant companion
- * reserves ownership.
+ * The board plugin's halves. Presentation: rows show id, state word, and
+ * revision, verbs fire the command callback with the row id (without
+ * opening the row), refresh reaches its callback, opening a row fires the
+ * owner's openDetail callback with the row id, the loading/empty/failed
+ * panels render their copy, and the command-error line carries the failure
+ * code. Browser half on a real SlotRegistry with a scripted tasks Remote:
+ * the drawer seat entry registers (fiber teardown removes it — HMR
+ * safety), dictionaries register per locale, and the boot load reaches the
+ * Remote. The node half is inert; the invariant companion reserves
+ * ownership.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -47,21 +47,23 @@ function task(over: Partial<TaskRecord> = {}): TaskRecord {
 }
 
 /** Component props with a controllable board-state source and spy callbacks. */
-function makeProps(state: TaskBoardState, wide = true): {
+function makeProps(state: TaskBoardState): {
   props: TaskBoardActionProps
   command: ReturnType<typeof vi.fn>
   refresh: ReturnType<typeof vi.fn>
+  openDetail: ReturnType<typeof vi.fn>
   setState: (next: TaskBoardState) => void
 } {
   let current = state
   const command = vi.fn()
   const refresh = vi.fn()
+  const openDetail = vi.fn()
   const useBoard = <S,>(selector: (snapshot: TaskBoardState) => S) => selector(current)
   // The framework's global standard props (useSessions/useWorkspaces) are
   // unused by this component; stable no-op stubs satisfy the share contract.
   const unusedGlobal = { getSnapshot: () => ({}), subscribe: () => () => {} } as never
   const composed: TaskBoardActionProps = {
-    wide,
+    openDetail,
     t,
     useBoard,
     refresh,
@@ -73,6 +75,7 @@ function makeProps(state: TaskBoardState, wide = true): {
     props: composed,
     command,
     refresh,
+    openDetail,
     setState: (next: TaskBoardState) => { current = next },
   }
 }
@@ -80,15 +83,11 @@ function makeProps(state: TaskBoardState, wide = true): {
 const ready = (tasks: readonly TaskRecord[]): TaskBoardState => ({ status: 'ready', tasks, updatedAt: 1 })
 
 describe('TaskBoardAction', () => {
-  it('opens the panel from the footer trigger and renders rows with verbs', () => {
+  it('renders rows with state words and verbs', () => {
     const running = task({ taskId: 't-run' as TaskRecord['taskId'], state: 'running' })
     const done = task({ taskId: 't-done' as TaskRecord['taskId'], state: 'completed', createdAt: 1 })
     const { props, command } = makeProps(ready([running, done]))
     render(<TaskBoardAction {...props} />)
-    const trigger = screen.getByRole('button', { name: zh.trigger })
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(trigger)
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText('t-run')).toBeTruthy()
     expect(screen.getByText(`${zh['state.running']} · 版本 4`)).toBeTruthy()
     expect(screen.getByText(`${zh['state.completed']} · 版本 4`)).toBeTruthy()
@@ -97,19 +96,19 @@ describe('TaskBoardAction', () => {
     expect(screen.queryByRole('button', { name: zh['verb.resume'] })).toBeNull()
   })
 
-  it('closes through the close control', () => {
-    const { props } = makeProps(ready([]))
+  it('fires the owner openDetail when a row is opened, and verbs do not open', () => {
+    const { props, openDetail } = makeProps(ready([task({ taskId: 't-open' as TaskRecord['taskId'] })]))
     render(<TaskBoardAction {...props} />)
-    const trigger = screen.getByRole('button', { name: zh.trigger })
-    fireEvent.click(trigger)
-    fireEvent.click(screen.getByRole('button', { name: zh.close }))
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: zh.open.replace('{taskId}', 't-open') }))
+    expect(openDetail).toHaveBeenCalledWith('t-open')
+    openDetail.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: zh['verb.pause'] }))
+    expect(openDetail).not.toHaveBeenCalled()
   })
 
   it('fires refresh from the footer', () => {
     const { props, refresh } = makeProps(ready([]))
     render(<TaskBoardAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     fireEvent.click(screen.getByRole('button', { name: zh.refresh }))
     expect(refresh).toHaveBeenCalledTimes(1)
   })
@@ -117,37 +116,25 @@ describe('TaskBoardAction', () => {
   it('renders the loading, empty, and failed panels', () => {
     const loading = makeProps({ status: 'loading', tasks: [], updatedAt: 0 })
     render(<TaskBoardAction {...loading.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByText(zh.loading)).toBeTruthy()
     cleanup()
 
     const empty = makeProps(ready([]))
     render(<TaskBoardAction {...empty.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByText(zh.empty)).toBeTruthy()
     cleanup()
 
     const failed = makeProps({ status: 'failed', tasks: [], error: 'unavailable', updatedAt: 0 })
     render(<TaskBoardAction {...failed.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByRole('alert').textContent).toContain('unavailable')
   })
 
   it('shows the command-failure line with the code until the next successful command', () => {
     const board = makeProps({ status: 'ready', tasks: [task()], error: 'stale-revision', updatedAt: 1 })
     render(<TaskBoardAction {...board.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('stale-revision')
     expect(alert.textContent).toContain('已重新同步')
-  })
-
-  it('renders the rail variant when the sidebar is collapsed', () => {
-    const rail = makeProps(ready([]), false)
-    render(<TaskBoardAction {...rail.props} />)
-    // The rail trigger still opens the same panel; only its chrome differs.
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
-    expect(screen.getByText(zh.empty)).toBeTruthy()
   })
 
   it('labels every task state through the dictionary', () => {
@@ -158,7 +145,6 @@ describe('TaskBoardAction', () => {
     const rows = states.map(state => task({ state }))
     const { props } = makeProps(ready(rows))
     render(<TaskBoardAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     // The state word renders inside the row's meta line ("state · 版本 n").
     for (const state of states) {
       const word = zh[`state.${state}` as const]
@@ -169,21 +155,20 @@ describe('TaskBoardAction', () => {
   })
 })
 
-/** Slot ledger reader: entry ids currently registered in the footer list. */
-function footerEntryIds(ctx: Context): (string | undefined)[] {
-  return ctx.slots
-    .entries('sidebar.footer.action')
-    .map(entry => entry.options.id)
+/** Slot ledger reader: entry presence in the declared drawer seat. */
+function seatRegistered(ctx: Context): boolean {
+  return ctx.slots.entries('workbench.drawer.tasks').length > 0
 }
 
 /** Boot the browser half over a real slot tree and a scripted tasks Remote. */
 async function boot(options: { loadFails?: boolean } = {}) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
+  // The drawer shell's seat declaration: the board registers into it.
   ctx.slots.register({
     name: 'root',
     children: {
-      'sidebar.footer.action': { kind: 'list', scope: 'root' },
+      'workbench.drawer.tasks': { kind: 'single', scope: 'root' },
     },
   } as never, () => null)
   // The locale plugin binds a settings scope, which reads the connection
@@ -219,22 +204,22 @@ describe('task-board browser half', () => {
     expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'locale'])
   })
 
-  it('registers the footer entry, and fiber teardown removes it (HMR safety)', async () => {
+  it('registers the drawer seat entry, and fiber teardown removes it (HMR safety)', async () => {
     const { ctx, fiber } = await boot()
-    expect(footerEntryIds(ctx)).toContain('task-board')
+    expect(seatRegistered(ctx)).toBe(true)
     await fiber.dispose()
-    expect(footerEntryIds(ctx)).not.toContain('task-board')
+    expect(seatRegistered(ctx)).toBe(false)
   })
 
   it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {
     const { ctx, fiber } = await boot()
     const translate = ctx.locale.bind(NS)
     // jsdom's navigator language is en-US, so the active locale starts en.
-    expect(translate('trigger')).toBe(en.trigger)
+    expect(translate('refresh')).toBe(en.refresh)
     ctx.locale.setLocale('zh')
-    expect(translate('trigger')).toBe(zh.trigger)
+    expect(translate('refresh')).toBe(zh.refresh)
     await fiber.dispose()
-    expect(translate('trigger')).not.toBe(zh.trigger)
+    expect(translate('refresh')).not.toBe(zh.refresh)
   })
 
   it('keeps the English dictionary key-identical to the Chinese source of truth', () => {
@@ -243,7 +228,7 @@ describe('task-board browser half', () => {
 
   it('wires the entry inject face to the controller callbacks', async () => {
     const { ctx, fiber } = await boot()
-    const entry = ctx.slots.entries('sidebar.footer.action').find(e => e.options.id === 'task-board')
+    const entry = ctx.slots.entries('workbench.drawer.tasks').at(0)
     expect(entry).toBeDefined()
     // The inject factory builds plain data + callbacks over the controller.
     const injectFace = (entry as unknown as { inject?: () => unknown }).inject
@@ -265,7 +250,7 @@ describe('task-board browser half', () => {
     await ctx.plugin(SlotRegistry).await()
     ctx.slots.register({
       name: 'root',
-      children: { 'sidebar.footer.action': { kind: 'list', scope: 'root' } },
+      children: { 'workbench.drawer.tasks': { kind: 'single', scope: 'root' } },
     } as never, () => null)
     ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
     class RemoteService extends Service {

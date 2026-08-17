@@ -25,6 +25,7 @@
     "packages/*/*/tests/**/*.client.ts",
     // Client packages outside packages/client with a local CSS module face.
     "packages/extensions/ui-cordis/src/css-modules.d.ts",
+    "packages/task-flow/client-ui-workbench-drawer/src/css-modules.d.ts",
     "packages/task-flow/client-ui-task-board/src/css-modules.d.ts",
     "packages/task-flow/client-ui-attention-inbox/src/css-modules.d.ts",
     "packages/task-flow/client-ui-task-detail/src/css-modules.d.ts",
@@ -94,6 +95,7 @@
     { "path": "./packages/client/ui-settings-general" },
     { "path": "./packages/client/ui-settings-models" },
     { "path": "./packages/client/ui-settings-plugin-inventory" },
+    { "path": "./packages/task-flow/client-ui-workbench-drawer" },
     { "path": "./packages/task-flow/client-ui-task-board" },
     { "path": "./packages/task-flow/client-ui-attention-inbox" },
     { "path": "./packages/task-flow/client-ui-task-detail" },

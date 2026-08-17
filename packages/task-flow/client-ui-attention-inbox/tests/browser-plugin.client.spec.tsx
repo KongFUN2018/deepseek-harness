@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 /**
- * The attention-inbox plugin's halves. Presentation: the footer trigger
- * opens the panel, B rows select and batch-confirm, C rows carry a decision
- * input that fires the decide callback, the conflict line carries the
- * non-confirmed count, and the loading/empty/failed panels render their copy.
- * Browser half on a real SlotRegistry with a scripted workbench Remote: the
- * footer entry registers (fiber teardown removes it — HMR safety),
- * dictionaries register per locale, and the boot load reaches the Remotes.
- * The node half is inert; the invariant companion reserves ownership.
+ * The attention-inbox plugin's halves. Presentation: B rows select and
+ * batch-confirm (with a clear control and a selected-count line), C rows
+ * carry a decision input that fires the decide callback, the conflict line
+ * carries the non-confirmed count, and the loading/empty/failed panels
+ * render their copy. Browser half on a real SlotRegistry with a scripted
+ * workbench Remote: the drawer seat entry registers (fiber teardown
+ * removes it — HMR safety), dictionaries register per locale, and the boot
+ * load reaches the Remotes. The node half is inert; the invariant companion
+ * reserves ownership.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -44,7 +45,7 @@ function item(over: Partial<AttentionItemView> = {}): AttentionItemView {
 }
 
 /** Component props with a controllable inbox-state source and spy callbacks. */
-function makeProps(state: InboxState, wide = true): {
+function makeProps(state: InboxState): {
   props: AttentionInboxActionProps
   confirm: ReturnType<typeof vi.fn>
   decide: ReturnType<typeof vi.fn>
@@ -58,7 +59,6 @@ function makeProps(state: InboxState, wide = true): {
   // unused by this component; stable no-op stubs satisfy the share contract.
   const unusedGlobal = { getSnapshot: () => ({}), subscribe: () => () => {} } as never
   const composed: AttentionInboxActionProps = {
-    wide,
     t,
     useInbox,
     confirm,
@@ -75,13 +75,11 @@ const ready = (items: readonly AttentionItemView[], over: Partial<InboxState> = 
 })
 
 describe('AttentionInboxAction', () => {
-  it('opens the panel and batch-confirms the selected B rows', () => {
+  it('batch-confirms the selected B rows', () => {
     const first = item({ title: 'gate-a' })
     const second = item({ title: 'gate-b' })
     const { props, confirm } = makeProps(ready([first, second]))
     render(<AttentionInboxAction {...props} />)
-    const trigger = screen.getByRole('button', { name: zh.trigger })
-    fireEvent.click(trigger)
     expect(screen.getByText('gate-a')).toBeTruthy()
     const checkbox = screen.getAllByRole('checkbox')[0] as HTMLElement
     fireEvent.click(checkbox)
@@ -93,7 +91,6 @@ describe('AttentionInboxAction', () => {
     const row = item({ kind: 'c-decision', title: 'review' })
     const { props, decide } = makeProps(ready([row]))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     const input = screen.getByPlaceholderText(zh['decision.placeholder'])
     fireEvent.change(input, { target: { value: 'approve' } })
     fireEvent.click(screen.getByRole('button', { name: zh.decide }))
@@ -104,7 +101,6 @@ describe('AttentionInboxAction', () => {
     const row = item({ kind: 'c-decision' })
     const { props, decide } = makeProps(ready([row]))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByRole<HTMLButtonElement>('button', { name: zh.decide }).disabled).toBe(true)
     expect(decide).not.toHaveBeenCalled()
   })
@@ -112,7 +108,6 @@ describe('AttentionInboxAction', () => {
   it('shows the conflict line with the non-confirmed count', () => {
     const { props } = makeProps(ready([item()], { conflictCount: 2, error: 'conflict:2' }))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('2')
   })
@@ -120,36 +115,30 @@ describe('AttentionInboxAction', () => {
   it('renders the loading, empty, and failed panels', () => {
     const loading = makeProps({ status: 'loading', items: [], snapshotVersion: 0, cursor: 0, conflictCount: 0, updatedAt: 0 })
     render(<AttentionInboxAction {...loading.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByText(zh.loading)).toBeTruthy()
     cleanup()
 
     const empty = makeProps(ready([]))
     render(<AttentionInboxAction {...empty.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByText(zh.empty)).toBeTruthy()
     cleanup()
 
     const failed = makeProps({ status: 'failed', items: [], snapshotVersion: 0, cursor: 0, conflictCount: 0, error: 'unavailable', updatedAt: 0 })
     render(<AttentionInboxAction {...failed.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByRole('alert').textContent).toContain('unavailable')
   })
 
-  it('renders the rail variant when the sidebar is collapsed', () => {
-    const rail = makeProps(ready([]), false)
-    render(<AttentionInboxAction {...rail.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
-    expect(screen.getByText(zh.empty)).toBeTruthy()
-  })
-
-  it('closes through the close control', () => {
-    const { props } = makeProps(ready([]))
+  it('renders the three content sections with their titles', () => {
+    const rows = [
+      item({ kind: 'b-confirm', title: 'b-open' }),
+      item({ kind: 'c-decision', title: 'c-open' }),
+      item({ kind: 'clarification', title: 'cl-open' }),
+    ]
+    const { props } = makeProps(ready(rows))
     render(<AttentionInboxAction {...props} />)
-    const trigger = screen.getByRole('button', { name: zh.trigger })
-    fireEvent.click(trigger)
-    fireEvent.click(screen.getByRole('button', { name: zh.close }))
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByText(zh['section.batch'])).toBeTruthy()
+    expect(screen.getByText(zh['section.decision'])).toBeTruthy()
+    expect(screen.getByText(zh['section.readonly'])).toBeTruthy()
   })
 
   it('labels every status and kind through the dictionary', () => {
@@ -164,7 +153,6 @@ describe('AttentionInboxAction', () => {
     ]
     const { props } = makeProps(ready(rows))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     const words = [
       zh['kind.b-confirm'], zh['kind.c-decision'], zh['kind.clarification'], zh['kind.recovery'],
       zh['status.open'], zh['status.resolved'], zh['status.invalidated'], zh['status.stale'],
@@ -176,21 +164,23 @@ describe('AttentionInboxAction', () => {
     }
   })
 
-  it('deselects a toggled batch row and disables the confirm button', () => {
+  it('deselects a toggled batch row, disables the confirm button, and clears the selection', () => {
     const row = item({ title: 'gate-a' })
     const { props } = makeProps(ready([row]))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     const checkbox = screen.getAllByRole('checkbox')[0] as HTMLElement
     fireEvent.click(checkbox)
+    expect(screen.getByText(zh.selected.replace('{count}', '1'))).toBeTruthy()
     fireEvent.click(checkbox)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: zh.confirm }).disabled).toBe(true)
+    fireEvent.click(checkbox)
+    fireEvent.click(screen.getByRole('button', { name: zh.clear }))
     expect(screen.getByRole<HTMLButtonElement>('button', { name: zh.confirm }).disabled).toBe(true)
   })
 
   it('shows the command-failure line with the code', () => {
     const { props } = makeProps(ready([item()], { error: 'stale-revision' }))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('stale-revision')
     expect(alert.textContent).toContain('已重新同步')
@@ -199,34 +189,31 @@ describe('AttentionInboxAction', () => {
   it('hides the conflict line when the count is zero', () => {
     const { props } = makeProps(ready([item()], { error: 'conflict:0', conflictCount: 0 }))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('fires refresh from the read-only footer', () => {
+  it('fires refresh from the footer', () => {
     const { props, refresh } = makeProps(ready([item({ kind: 'clarification' })]))
     render(<AttentionInboxAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     fireEvent.click(screen.getByRole('button', { name: zh.refresh }))
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 })
 
-/** Slot ledger reader: entry ids currently registered in the footer list. */
-function footerEntryIds(ctx: Context): (string | undefined)[] {
-  return ctx.slots
-    .entries('sidebar.footer.action')
-    .map(entry => entry.options.id)
+/** Slot ledger reader: entry presence in the declared drawer seat. */
+function seatRegistered(ctx: Context, seat: 'workbench.drawer.inbox'): boolean {
+  return ctx.slots.entries(seat).length > 0
 }
 
 /** Boot the browser half over a real slot tree and a scripted workbench Remote. */
 async function boot(options: { loadFails?: boolean; items?: AttentionItemView[] } = {}) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
+  // The drawer shell's seat declaration: the inbox registers into it.
   ctx.slots.register({
     name: 'root',
     children: {
-      'sidebar.footer.action': { kind: 'list', scope: 'root' },
+      'workbench.drawer.inbox': { kind: 'single', scope: 'root' },
     },
   } as never, () => null)
   ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
@@ -262,21 +249,21 @@ describe('attention-inbox browser half', () => {
     expect(inject).toEqual(['slots', 'remote', 'remote.workbenchHost', 'remote.workbenchHostStream', 'locale'])
   })
 
-  it('registers the footer entry, and fiber teardown removes it (HMR safety)', async () => {
+  it('registers the drawer seat entry, and fiber teardown removes it (HMR safety)', async () => {
     const { ctx, fiber } = await boot()
-    expect(footerEntryIds(ctx)).toContain('attention-inbox')
+    expect(seatRegistered(ctx, 'workbench.drawer.inbox')).toBe(true)
     await fiber.dispose()
-    expect(footerEntryIds(ctx)).not.toContain('attention-inbox')
+    expect(seatRegistered(ctx, 'workbench.drawer.inbox')).toBe(false)
   })
 
   it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {
     const { ctx, fiber } = await boot()
     const translate = ctx.locale.bind(NS)
-    expect(translate('trigger')).toBe(en.trigger)
+    expect(translate('refresh')).toBe(en.refresh)
     ctx.locale.setLocale('zh')
-    expect(translate('trigger')).toBe(zh.trigger)
+    expect(translate('refresh')).toBe(zh.refresh)
     await fiber.dispose()
-    expect(translate('trigger')).not.toBe(zh.trigger)
+    expect(translate('refresh')).not.toBe(zh.refresh)
   })
 
   it('keeps the English dictionary key-identical to the Chinese source of truth', () => {
@@ -290,7 +277,7 @@ describe('attention-inbox browser half', () => {
     await ctx.plugin(SlotRegistry).await()
     ctx.slots.register({
       name: 'root',
-      children: { 'sidebar.footer.action': { kind: 'list', scope: 'root' } },
+      children: { 'workbench.drawer.inbox': { kind: 'single', scope: 'root' } },
     } as never, () => null)
     ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
     class RemoteService extends Service {
@@ -317,7 +304,7 @@ describe('attention-inbox browser half', () => {
   it('wires the entry inject face to the controller callbacks', async () => {
     const first = item()
     const { ctx, fiber } = await boot({ items: [first] })
-    const entry = ctx.slots.entries('sidebar.footer.action').find(e => e.options.id === 'attention-inbox')
+    const entry = ctx.slots.entries('workbench.drawer.inbox').at(0)
     expect(entry).toBeDefined()
     const injectFace = (entry as unknown as { inject?: () => unknown }).inject
     expect(injectFace).toBeTypeOf('function')

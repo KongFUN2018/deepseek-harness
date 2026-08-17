@@ -2,12 +2,12 @@
 
 [English](README.md) | 中文
 
-任务流详情面的浏览器半边：一个 `sidebar.footer.action` 入口，其触发打开按需的单任务详情面板。面板通过生成的 `tasks` Remote 读取任务投影（`getTask`），再读取其当前运行的阶段运行（`listPhaseRuns`）与每个活动提交的门禁结论（`listGateResults`）。
+任务流详情面的浏览器半边：一个 `workbench.drawer.detail` 入口，填充工作台抽屉的详情标签页。面板通过生成的 `tasks` Remote 读取任务投影（`getTask`），再读取其当前运行的阶段运行（`listPhaseRuns`）与每个活动提交的门禁结论（`listGateResults`）。
 
 ## 呈现面
 
-- 占用 `sidebar.footer.action`（ui-sidebar 声明，可加列表槽），id 为 `task-detail`。
-- 面板以模态打开，带任务 ID 输入与加载动词；加载后的任务显示其状态与修订、阶段运行，以及带通过/未通过标记的门禁结论。
+- 以唯一占用者身份占位 `workbench.drawer.detail`（client-ui-workbench-drawer 的 shell.overlay entry 声明）。
+- owner 的 `taskId` 份额驱动加载：抽屉任务标签页打开任务行时触发 `openDetail(taskId)`，详情标签页随之切换加载，未选择时呈现空态。加载后的任务显示其状态与修订、阶段运行，以及带通过/未通过标记的门禁结论。
 
 ## 对象层
 

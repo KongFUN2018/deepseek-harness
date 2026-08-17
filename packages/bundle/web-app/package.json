@@ -81,6 +81,7 @@
     "@deepseek-ai/dsh-client-ui-workflow-run": "workspace:^",
     "@deepseek-ai/dsh-client-ui-trajectory": "workspace:^",
     "@deepseek-ai/dsh-client-ui-workspace": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-workbench-drawer": "workspace:^",
     "@deepseek-ai/dsh-client-ui-task-board": "workspace:^",
     "@deepseek-ai/dsh-client-ui-attention-inbox": "workspace:^",
     "@deepseek-ai/dsh-client-ui-task-detail": "workspace:^",

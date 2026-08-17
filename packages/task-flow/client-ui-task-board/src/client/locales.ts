@@ -5,15 +5,13 @@ export const NS = 'taskBoard'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  'trigger': '任务',
-  'title': '任务',
   'refresh': '刷新',
-  'close': '关闭',
   'loading': '加载中…',
   'empty': '暂无任务',
   'error.load': '加载失败：{code}',
   'error.command': '操作失败：{code}，已重新同步',
   'revision': '版本 {revision}',
+  'open': '打开任务 {taskId}',
   'state.planning': '规划中',
   'state.running': '运行中',
   'state.awaiting-input': '等待输入',
@@ -31,15 +29,13 @@ export const zh = {
 
 /** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<TaskBoardKey, string> = {
-  'trigger': 'Tasks',
-  'title': 'Tasks',
   'refresh': 'Refresh',
-  'close': 'Close',
   'loading': 'Loading…',
   'empty': 'No tasks yet',
   'error.load': 'Load failed: {code}',
   'error.command': 'Command failed: {code}; resynced',
   'revision': 'rev {revision}',
+  'open': 'Open task {taskId}',
   'state.planning': 'planning',
   'state.running': 'running',
   'state.awaiting-input': 'awaiting input',

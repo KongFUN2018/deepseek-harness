@@ -74,6 +74,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/ui-message-feedback': { kind: 'none', reason: 'Browser-side controls over the message-feedback sidecar; ratings and notes never enter the Session log, model context, or telemetry.' },
   'packages/client/ui-tool': { kind: 'none', reason: 'Browser-side Tool presentation layer; renders logged calls without changing model context.' },
   'packages/client/ui-jobs': { kind: 'none', reason: 'Browser-side read-only projection of ctx.jobs records; dsh-tool-jobs owns the model-facing behavior.' },
+  'packages/task-flow/client-ui-workbench-drawer': { kind: 'none', reason: 'Browser-side trigger aggregates and seating chrome; the drawer issues no task mutations and registers nothing model-facing.' },
   'packages/task-flow/client-ui-task-board': { kind: 'none', reason: 'Browser-side projection of task records; the verb buttons only route task lifecycle mutations that never enter prompts or the session log.' },
   'packages/task-flow/client-ui-attention-inbox': { kind: 'none', reason: 'Browser-side projection of attention records; the confirm/decide verbs only route attention mutations that never enter prompts or the session log.' },
   'packages/task-flow/client-ui-task-detail': { kind: 'none', reason: 'Browser-side read-only projection of task records; the load verb only reads task projections that never enter prompts or the session log.' },

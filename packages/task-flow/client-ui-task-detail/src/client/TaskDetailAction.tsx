@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import type { TaskRecord } from '@deepseek-ai/dsh-task/types'
-import { Button, Input, Modal, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import { StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-// Type-only: pulls ui-sidebar's SlotMap merge (the 'sidebar.footer.action' entry).
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+// Type-only: pulls the drawer shell's SlotMap merge (the 'workbench.drawer.detail' seat).
+import type {} from '@deepseek-ai/dsh-client-ui-workbench-drawer/client'
 import type { TaskDetailState } from './detail.ts'
 import { NS } from './locales.ts'
 import css from './TaskDetailAction.module.css'
@@ -20,9 +20,9 @@ export interface TaskDetailActionInjected {
   load: (taskId: string) => void
 }
 
-/** Full props for the sidebar-foot detail trigger and panel. */
+/** Full props for the drawer's task-detail tab body. */
 export type TaskDetailActionProps =
-  PropsRuntime<'sidebar.footer.action'> & PropsLocale<typeof NS> & InjectFace<TaskDetailActionInjected>
+  PropsRuntime<'workbench.drawer.detail'> & PropsLocale<typeof NS> & InjectFace<TaskDetailActionInjected>
 
 /** Closed-union exhaustiveness fence for the wire task-state set. */
 /* v8 ignore next 3 -- closed-union backstop; only reached if a state is forged */
@@ -49,70 +49,56 @@ function dotState(state: TaskRecord['state']): StateDotState {
 }
 
 /**
- * Render the sidebar-foot detail trigger and, when open, the per-task panel.
- * @param props - composed slot props (owner wide state, locale, inject face).
- * @returns the trigger element; the open panel portals through Modal.
+ * Render the drawer's task-detail tab body: the owner-selected task's
+ * projection, phase runs, and gate verdicts. A `taskId` change reloads
+ * through the controller; no selection renders the empty state.
+ * @param props - composed slot props (owner taskId, locale, inject face).
+ * @returns the detail panel filling the drawer's tab body.
  */
 export function TaskDetailAction(props: TaskDetailActionProps) {
-  const { wide, t, useDetail, load } = props
-  const [open, setOpen] = useState(false)
-  const [taskId, setTaskId] = useState('')
+  const { taskId, t, useDetail, load } = props
   const detail = useDetail(state => state)
+  useEffect(() => {
+    if (taskId !== undefined) load(taskId)
+  }, [taskId, load])
   return (
-    <>
-      <button
-        type="button"
-        className={wide ? css.trigger : css.triggerRail}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => { setOpen(!open) }}
-      >
-        {t('trigger')}
-      </button>
-      <Modal open={open} onClose={() => { setOpen(false) }} title={t('title')} closeLabel={t('close')}>
-        <div className={css.panel}>
-          <div className={css.search}>
-            <Input value={taskId} placeholder={t('placeholder')} onChange={(event) => { setTaskId(event.target.value) }} />
-            <Button size="sm" variant="primary" disabled={taskId.trim() === ''} onClick={() => { load(taskId.trim()) }}>{t('load')}</Button>
+    <div className={css.panel}>
+      {taskId === undefined && <p className={css.statusLine}>{t('empty')}</p>}
+      {taskId !== undefined && detail.status === 'loading' && <p className={css.statusLine}>{t('loading')}</p>}
+      {taskId !== undefined && detail.status === 'failed' && (
+        <p className={css.errorLine} role="alert">
+          {detail.error === 'not-found' ? t('not-found') : t('error.load', { code: detail.error ?? '' })}
+        </p>
+      )}
+      {taskId !== undefined && detail.status === 'ready' && detail.task !== undefined && (
+        <div className={css.body}>
+          <div className={css.taskRow}>
+            <StateDot state={dotState(detail.task.state)} className={css.rowDot} />
+            <span className={css.itemId}>{detail.task.taskId}</span>
+            <span className={css.meta}>{detail.task.state} · {t('revision', { revision: detail.task.revision })}</span>
           </div>
-          {detail.status === 'idle' && <p className={css.statusLine}>{t('empty')}</p>}
-          {detail.status === 'loading' && <p className={css.statusLine}>{t('loading')}</p>}
-          {detail.status === 'failed' && (
-            <p className={css.errorLine} role="alert">
-              {detail.error === 'not-found' ? t('not-found') : t('error.load', { code: detail.error ?? '' })}
-            </p>
-          )}
-          {detail.status === 'ready' && detail.task !== undefined && (
-            <div className={css.body}>
-              <div className={css.taskRow}>
-                <StateDot state={dotState(detail.task.state)} className={css.rowDot} />
-                <span className={css.itemId}>{detail.task.taskId}</span>
-                <span className={css.meta}>{detail.task.state} · {t('revision', { revision: detail.task.revision })}</span>
-              </div>
-              <p className={css.section}>{t('phases')}</p>
-              {detail.phaseRuns.length === 0 && <p className={css.statusLine}>{t('none')}</p>}
-              <ul className={css.list}>
-                {detail.phaseRuns.map(phase => (
-                  <li key={String(phase.phaseRunId)} className={css.row}>
-                    <span className={css.itemId}>{phase.phaseId}</span>
-                    <span className={css.meta}>{phase.state} · {t('revision', { revision: phase.revision })}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className={css.section}>{t('gates')}</p>
-              {detail.gateResults.length === 0 && <p className={css.statusLine}>{t('none')}</p>}
-              <ul className={css.list}>
-                {detail.gateResults.map(gate => (
-                  <li key={`${String(gate.submissionId)}:${gate.checkId}`} className={css.row}>
-                    <span className={css.itemId}>{gate.checkId}</span>
-                    <span className={css.meta}>{gate.passed ? t('passed') : t('failed')}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <p className={css.section}>{t('phases')}</p>
+          {detail.phaseRuns.length === 0 && <p className={css.statusLine}>{t('none')}</p>}
+          <ul className={css.list}>
+            {detail.phaseRuns.map(phase => (
+              <li key={String(phase.phaseRunId)} className={css.row}>
+                <span className={css.itemId}>{phase.phaseId}</span>
+                <span className={css.meta}>{phase.state} · {t('revision', { revision: phase.revision })}</span>
+              </li>
+            ))}
+          </ul>
+          <p className={css.section}>{t('gates')}</p>
+          {detail.gateResults.length === 0 && <p className={css.statusLine}>{t('none')}</p>}
+          <ul className={css.list}>
+            {detail.gateResults.map(gate => (
+              <li key={`${String(gate.submissionId)}:${gate.checkId}`} className={css.row}>
+                <span className={css.itemId}>{gate.checkId}</span>
+                <span className={css.meta}>{gate.passed ? t('passed') : t('failed')}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </Modal>
-    </>
+      )}
+    </div>
   )
 }

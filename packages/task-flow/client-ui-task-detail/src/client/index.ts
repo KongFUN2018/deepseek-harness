@@ -1,16 +1,17 @@
 /**
- * Task detail plugin, browser half: one `sidebar.footer.action` entry whose
- * trigger opens the on-demand per-task detail panel. All data lives in the
- * React-free controller (`detail.ts`): a getTask load over the tasks Remote,
- * then the phase runs of the current run and each active submission's gate
- * verdicts. The component sees only the store snapshot and the load callback
- * through the inject face; the host projections stay the single authority.
+ * Task detail plugin, browser half: one `workbench.drawer.detail` entry
+ * filling the drawer's detail tab. All task data lives in the React-free
+ * controller (`detail.ts`): an on-demand load of one task projection, its
+ * phase runs, and the gate verdicts of each active submission through the
+ * tasks Remote. The component sees only the store snapshot and the load
+ * callback through the inject face; the owner's `taskId` share drives what
+ * loads.
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: pulls the generated tasks Remote namespace into this compilation program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-// Type-only: pulls ui-sidebar's SlotMap merge (the 'sidebar.footer.action' entry).
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+// Type-only: pulls the drawer shell's SlotMap merge (the 'workbench.drawer.detail' seat).
+import type {} from '@deepseek-ai/dsh-client-ui-workbench-drawer/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { TaskDetailController } from './detail.ts'
@@ -24,21 +25,18 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Required services for the footer entry, the tasks Remote, and copy. */
+/** Required services for the drawer seat, the tasks Remote, and copy. */
 export const inject = ['slots', 'remote', 'remote.tasks', 'locale']
 
 /**
- * Client plugin body: the dictionaries, the controller, and the footer entry.
+ * Client plugin body: the dictionaries, the controller, and the drawer seat.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-task-detail: dictionaries')
   const detail = new TaskDetailController(ctx)
-  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-    name: 'sidebar.footer.action',
-    id: 'task-detail',
-    // Beside the attention inbox: after it, keeping the settings seat visually last.
-    order: 12,
+  ctx.slots.inject('workbench.drawer.detail', () => ctx.slots.register({
+    name: 'workbench.drawer.detail',
     locale: NS,
     inject: () => ({
       hooks: { detail: detail.store },

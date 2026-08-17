@@ -5,10 +5,7 @@ export const NS = 'attentionInbox'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  'trigger': '收件箱',
-  'title': '决策收件箱',
   'refresh': '刷新',
-  'close': '关闭',
   'loading': '加载中…',
   'empty': '暂无待决策项',
   'error.load': '加载失败：{code}',
@@ -23,6 +20,11 @@ export const zh = {
   'kind.c-decision': '决策',
   'kind.clarification': '澄清',
   'kind.recovery': '恢复',
+  'section.batch': '机器判定 + 人工确认',
+  'section.decision': '需要拍板',
+  'section.readonly': '跟踪项',
+  'selected': '已选 {count} 项',
+  'clear': '清除',
   'confirm': '确认选中',
   'confirmOne': '确认',
   'decide': '提交决策',
@@ -31,10 +33,7 @@ export const zh = {
 
 /** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<AttentionInboxKey, string> = {
-  'trigger': 'Inbox',
-  'title': 'Decision Inbox',
   'refresh': 'Refresh',
-  'close': 'Close',
   'loading': 'Loading…',
   'empty': 'Nothing awaiting a decision',
   'error.load': 'Load failed: {code}',
@@ -49,6 +48,11 @@ export const en: Record<AttentionInboxKey, string> = {
   'kind.c-decision': 'decision',
   'kind.clarification': 'clarification',
   'kind.recovery': 'recovery',
+  'section.batch': 'Machine verdict + human confirm',
+  'section.decision': 'Needs a call',
+  'section.readonly': 'Tracking',
+  'selected': '{count} selected',
+  'clear': 'Clear',
   'confirm': 'Confirm selected',
   'confirmOne': 'Confirm',
   'decide': 'Submit decision',

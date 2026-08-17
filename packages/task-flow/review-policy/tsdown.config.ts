@@ -11,6 +11,10 @@ export default defineConfig([
     fixedExtension: false,
     dts: false,
     clean: false,
+    // The side-effect type imports pull @Remote-bearing workspace sources into
+    // the bundle; keep the runtime packages external so their built artifacts
+    // (already decorator-lowered) resolve from the workspace at load time.
+    deps: { neverBundle: ['@deepseek-ai/dsh-attention', '@deepseek-ai/dsh-task', '@deepseek-ai/dsh-deliverable-local', '@deepseek-ai/dsh-workbench-journal', '@deepseek-ai/dsh-typert-protocol', '@deepseek-ai/dsh-invariants', '@deepseek-ai/dsh-storage-domain', '@deepseek-ai/dsh-brand', '@deepseek-ai/dsh-recipe'] },
   },
   {
     entry: ['lib/types/invariant.js'],

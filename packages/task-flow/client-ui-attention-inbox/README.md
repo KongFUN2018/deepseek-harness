@@ -2,12 +2,12 @@
 
 English | [中文](README.zh.md)
 
-The browser half of the workbench attention channel: one `sidebar.footer.action` entry whose trigger opens the decision-inbox panel. The inbox presents open attention items over the generated `workbenchHost` Remote, folds forwarded `workbench/attention-updated` deliveries, replays the `workbenchHostStream` delta on reconnect, and issues the batch-confirm and single-decision verbs with each row's compare-and-set revision. A non-resolved outcome (conflict, stale, withdrawn, already-resolved, or an invalid option) is never silently removed — its count surfaces and the list resyncs.
+The browser half of the workbench attention channel: one `workbench.drawer.inbox` entry filling the workbench drawer's inbox tab. The inbox presents open attention items over the generated `workbenchHost` Remote, folds forwarded `workbench/attention-updated` deliveries, replays the `workbenchHostStream` delta on reconnect, and issues the batch-confirm and single-decision verbs with each row's compare-and-set revision. A non-resolved outcome (conflict, stale, withdrawn, already-resolved, or an invalid option) is never silently removed — its count surfaces and the list resyncs.
 
 ## Surface
 
-- Occupies `sidebar.footer.action` (declared by ui-sidebar, additive list slot) with id `attention-inbox`.
-- The panel opens as a modal. B-class (`b-confirm`) rows select and batch-confirm; C-class (`c-decision`) rows carry a decision input and a submit verb; clarification/recovery rows render read-only.
+- Occupies `workbench.drawer.inbox` (declared by client-ui-workbench-drawer's shell.overlay entry) as its single occupant.
+- B-class (`b-confirm`) rows select and batch-confirm under a sticky action bar with a selected count and a clear control; C-class (`c-decision`) rows carry a decision input and a submit verb; clarification/recovery rows render read-only in a tracking section.
 
 ## Object layer
 

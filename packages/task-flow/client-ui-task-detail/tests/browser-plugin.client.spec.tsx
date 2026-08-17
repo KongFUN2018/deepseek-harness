@@ -1,16 +1,17 @@
 // @vitest-environment jsdom
 /**
- * The task-detail plugin's halves. Presentation: the footer trigger opens
- * the panel, entering a task id and loading renders the task, phase runs,
- * and gate verdicts, a missing task shows the not-found line, and the
- * idle/loading panels render their copy. Browser half on a real SlotRegistry
- * with a scripted tasks Remote: the footer entry registers (fiber teardown
- * removes it — HMR safety) and dictionaries register per locale. The node
- * half is inert; the invariant companion reserves ownership.
+ * The task-detail plugin's halves. Presentation: the owner-selected task id
+ * loads on change, the ready state renders the task, phase runs, and gate
+ * verdicts, a missing task shows the not-found line, an undefined selection
+ * shows the empty state, and the idle/loading panels render their copy.
+ * Browser half on a real SlotRegistry with a scripted tasks Remote: the
+ * drawer seat entry registers (fiber teardown removes it — HMR safety) and
+ * dictionaries register per locale. The node half is inert; the invariant
+ * companion reserves ownership.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { makeTranslate, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
@@ -43,7 +44,7 @@ function task(): TaskRecord {
 }
 
 /** Component props with a controllable detail-state source and a spy loader. */
-function makeProps(state: TaskDetailState, wide = true): {
+function makeProps(state: TaskDetailState, taskId: string | undefined = 't-1'): {
   props: TaskDetailActionProps
   load: ReturnType<typeof vi.fn>
 } {
@@ -51,7 +52,7 @@ function makeProps(state: TaskDetailState, wide = true): {
   const useDetail = <S,>(selector: (snapshot: TaskDetailState) => S) => selector(state)
   const unusedGlobal = { getSnapshot: () => ({}), subscribe: () => () => {} } as never
   const composed: TaskDetailActionProps = {
-    wide,
+    taskId,
     t,
     useDetail,
     load,
@@ -64,7 +65,7 @@ function makeProps(state: TaskDetailState, wide = true): {
 const idle = (): TaskDetailState => ({ status: 'idle', phaseRuns: [], gateResults: [] })
 
 describe('TaskDetailAction', () => {
-  it('loads a task id and renders the task, phase runs, and verdicts', () => {
+  it('loads the owner task id on mount and renders the task, phase runs, and verdicts', () => {
     const row = task()
     const phase: PhaseRunRecord = {
       phaseRunId: 'pr-1' as PhaseRunRecord['phaseRunId'],
@@ -80,44 +81,40 @@ describe('TaskDetailAction', () => {
       passed: true,
       recordedAt: 1,
     }
-    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [phase], gateResults: [gate] })
+    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [phase], gateResults: [gate] }, String(row.taskId))
     render(<TaskDetailAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
+    expect(load).toHaveBeenCalledWith(String(row.taskId))
     expect(screen.getByText('phase-a')).toBeTruthy()
     expect(screen.getByText('check-a')).toBeTruthy()
-    const input = screen.getByPlaceholderText(zh.placeholder)
-    fireEvent.change(input, { target: { value: 't-9' } })
-    fireEvent.click(screen.getByRole('button', { name: zh.load }))
-    expect(load).toHaveBeenCalledWith('t-9')
+  })
+
+  it('reloads when the owner switches the task id', () => {
+    const row = task()
+    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [] }, 't-1')
+    const { rerender } = render(<TaskDetailAction {...props} />)
+    expect(load).toHaveBeenCalledWith('t-1')
+    load.mockClear()
+    rerender(<TaskDetailAction {...props} taskId="t-2" />)
+    expect(load).toHaveBeenCalledWith('t-2')
+  })
+
+  it('renders the empty state while no task is selected and loads nothing', () => {
+    const { props, load } = makeProps(idle())
+    render(<TaskDetailAction {...props} taskId={undefined} />)
+    expect(screen.getByText(zh.empty)).toBeTruthy()
+    expect(load).not.toHaveBeenCalled()
   })
 
   it('shows the not-found line for a missing task', () => {
     const { props } = makeProps({ status: 'failed', error: 'not-found', phaseRuns: [], gateResults: [] })
     render(<TaskDetailAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByRole('alert').textContent).toBe(zh['not-found'])
   })
 
-  it('renders the idle and loading panels', () => {
-    const idleProps = makeProps(idle())
-    render(<TaskDetailAction {...idleProps.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
-    expect(screen.getByText(zh.empty)).toBeTruthy()
-    cleanup()
-
+  it('renders the loading panel', () => {
     const loading = makeProps({ status: 'loading', phaseRuns: [], gateResults: [] })
     render(<TaskDetailAction {...loading.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByText(zh.loading)).toBeTruthy()
-  })
-
-  it('closes through the close control', () => {
-    const { props } = makeProps(idle())
-    render(<TaskDetailAction {...props} />)
-    const trigger = screen.getByRole('button', { name: zh.trigger })
-    fireEvent.click(trigger)
-    fireEvent.click(screen.getByRole('button', { name: zh.close }))
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('marks every task state through the dot semantics', () => {
@@ -129,7 +126,6 @@ describe('TaskDetailAction', () => {
       const row = task()
       const { props } = makeProps({ status: 'ready', task: { ...row, state }, phaseRuns: [], gateResults: [] })
       render(<TaskDetailAction {...props} />)
-      fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
       const metas = screen.getAllByText((_, element) =>
         element?.textContent?.includes(state) === true && element.textContent.includes('版本'))
       expect(metas.length).toBeGreaterThan(0)
@@ -140,14 +136,12 @@ describe('TaskDetailAction', () => {
   it('shows the load-failure line for a non-missing error', () => {
     const { props } = makeProps({ status: 'failed', error: 'unavailable', phaseRuns: [], gateResults: [] })
     render(<TaskDetailAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByRole('alert').textContent).toContain('unavailable')
   })
 
   it('renders the load-failure line when a failure carries no code', () => {
     const { props } = makeProps({ status: 'failed', phaseRuns: [], gateResults: [] })
     render(<TaskDetailAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByRole('alert').textContent).toContain(zh['error.load'].split('{code}')[0])
   })
 
@@ -155,7 +149,6 @@ describe('TaskDetailAction', () => {
     const row = task()
     const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [] })
     render(<TaskDetailAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getAllByText(zh.none).length).toBe(2)
   })
 
@@ -169,33 +162,24 @@ describe('TaskDetailAction', () => {
     }
     const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [gate] })
     render(<TaskDetailAction {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
     expect(screen.getByText(zh.failed)).toBeTruthy()
-  })
-
-  it('renders the rail variant when the sidebar is collapsed', () => {
-    const rail = makeProps(idle(), false)
-    render(<TaskDetailAction {...rail.props} />)
-    fireEvent.click(screen.getByRole('button', { name: zh.trigger }))
-    expect(screen.getByText(zh.empty)).toBeTruthy()
   })
 })
 
-/** Slot ledger reader: entry ids currently registered in the footer list. */
-function footerEntryIds(ctx: Context): (string | undefined)[] {
-  return ctx.slots
-    .entries('sidebar.footer.action')
-    .map(entry => entry.options.id)
+/** Slot ledger reader: entry presence in the declared drawer seat. */
+function seatRegistered(ctx: Context): boolean {
+  return ctx.slots.entries('workbench.drawer.detail').length > 0
 }
 
 /** Boot the browser half over a real slot tree and a scripted tasks Remote. */
 async function boot() {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
+  // The drawer shell's seat declaration: the detail registers into it.
   ctx.slots.register({
     name: 'root',
     children: {
-      'sidebar.footer.action': { kind: 'list', scope: 'root' },
+      'workbench.drawer.detail': { kind: 'single', scope: 'root' },
     },
   } as never, () => null)
   ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
@@ -226,21 +210,23 @@ describe('task-detail browser half', () => {
     expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'locale'])
   })
 
-  it('registers the footer entry, and fiber teardown removes it (HMR safety)', async () => {
+  it('registers the drawer seat entry, and fiber teardown removes it (HMR safety)', async () => {
     const { ctx, fiber } = await boot()
-    expect(footerEntryIds(ctx)).toContain('task-detail')
+    expect(seatRegistered(ctx)).toBe(true)
     await fiber.dispose()
-    expect(footerEntryIds(ctx)).not.toContain('task-detail')
+    expect(seatRegistered(ctx)).toBe(false)
   })
 
   it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {
     const { ctx, fiber } = await boot()
     const translate = ctx.locale.bind(NS)
-    expect(translate('trigger')).toBe(en.trigger)
+    // 'empty' is namespace-exclusive: the common vocabulary also carries
+    // generic words like 'loading', which would mask the namespace removal.
+    expect(translate('empty')).toBe(en.empty)
     ctx.locale.setLocale('zh')
-    expect(translate('trigger')).toBe(zh.trigger)
+    expect(translate('empty')).toBe(zh.empty)
     await fiber.dispose()
-    expect(translate('trigger')).not.toBe(zh.trigger)
+    expect(translate('empty')).not.toBe(zh.empty)
   })
 
   it('keeps the English dictionary key-identical to the Chinese source of truth', () => {
@@ -249,7 +235,7 @@ describe('task-detail browser half', () => {
 
   it('wires the entry inject face to the controller load callback', async () => {
     const { ctx, fiber } = await boot()
-    const entry = ctx.slots.entries('sidebar.footer.action').find(e => e.options.id === 'task-detail')
+    const entry = ctx.slots.entries('workbench.drawer.detail').at(0)
     expect(entry).toBeDefined()
     const injectFace = (entry as unknown as { inject?: () => unknown }).inject
     expect(injectFace).toBeTypeOf('function')

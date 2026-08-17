@@ -35,9 +35,19 @@ const ITEMS = [
   { itemId: 'wbx-delta', title: 'wbx-delta-gate' },
 ] as const
 
-/** The decision-inbox dialog on one tab. */
+/** The workbench drawer dialog on one tab. */
 function inbox(page: Page): Locator {
-  return page.getByRole('dialog', { name: 'Decision Inbox' })
+  return page.getByRole('dialog', { name: 'Task Flow' })
+}
+
+/** Open the drawer's inbox tab on one page (idempotent). */
+async function openInboxTab(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /Task Flow/ }).click()
+  await inbox(page).waitFor({ timeout: 10_000 })
+  const inboxTab = page.getByRole('tab', { name: /Inbox/ })
+  if (await inboxTab.getAttribute('aria-selected') !== 'true') {
+    await inboxTab.click()
+  }
 }
 
 /** The row of one item, addressed through its checkbox aria-label. */
@@ -74,8 +84,7 @@ describe('web e2e: workbench attention inbox channel', () => {
     for (const page of [tabA, tabB]) {
       await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
       await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-      await page.getByRole('button', { name: 'Inbox', exact: true }).click()
-      await inbox(page).waitFor({ timeout: 10_000 })
+      await openInboxTab(page)
     }
   }, 120_000)
 
@@ -99,8 +108,7 @@ describe('web e2e: workbench attention inbox channel', () => {
     await tabB.reload()
     acknowledgeReloadConnectionLoss(tripB, warningStart)
     await tabB.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-    await tabB.getByRole('button', { name: 'Inbox', exact: true }).click()
-    await inbox(tabB).waitFor({ timeout: 10_000 })
+    await openInboxTab(tabB)
     for (const item of ITEMS) {
       await expect.poll(() => row(tabB, item.itemId).textContent(), { timeout: 10_000 })
         .toContain('open')

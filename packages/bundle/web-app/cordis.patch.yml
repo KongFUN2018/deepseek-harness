@@ -246,17 +246,23 @@
     - id: ui-message-feedback
       name: '@deepseek-ai/dsh-client-ui-message-feedback'
 
-    # Task-flow board: cross-session task panel at the sidebar foot, over the
-    # tasks Remote with task/updated folds.
+    # Task-flow workbench drawer: single floating trigger + right-side
+    # three-tab drawer in shell.overlay, seating the three content panels.
+    - id: ui-workbench-drawer
+      name: '@deepseek-ai/dsh-client-ui-workbench-drawer'
+
+    # Task-flow board: the drawer's task tab, over the tasks Remote with
+    # task/updated folds.
     - id: ui-task-board
       name: '@deepseek-ai/dsh-client-ui-task-board'
 
-    # Task-flow attention inbox: decision panel at the sidebar foot, over the
+    # Task-flow attention inbox: the drawer's inbox tab, over the
     # workbench-host/workbench-host-stream Remotes with attention-updated folds.
     - id: ui-attention-inbox
       name: '@deepseek-ai/dsh-client-ui-attention-inbox'
 
-    # Task-flow detail: per-task projection reader over the tasks Remote.
+    # Task-flow detail: the drawer's detail tab, per-task projection reader
+    # over the tasks Remote.
     - id: ui-task-detail
       name: '@deepseek-ai/dsh-client-ui-task-detail'
 

@@ -1,9 +1,8 @@
-import { useState } from 'react'
 import type { TaskRecord } from '@deepseek-ai/dsh-task/types'
-import { Button, Modal, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-// Type-only: pulls ui-sidebar's SlotMap merge (the 'sidebar.footer.action' entry).
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+// Type-only: pulls the drawer shell's SlotMap merge (the 'workbench.drawer.tasks' seat).
+import type {} from '@deepseek-ai/dsh-client-ui-workbench-drawer/client'
 import { verbsFor, type TaskBoardState, type TaskBoardVerb } from './board.ts'
 import { NS } from './locales.ts'
 import css from './TaskBoardAction.module.css'
@@ -22,9 +21,9 @@ export interface TaskBoardActionInjected {
   command: (taskId: string, verb: TaskBoardVerb) => void
 }
 
-/** Full props for the sidebar-foot board trigger and panel. */
+/** Full props for the drawer's task-list tab body. */
 export type TaskBoardActionProps =
-  PropsRuntime<'sidebar.footer.action'> & PropsLocale<typeof NS> & InjectFace<TaskBoardActionInjected>
+  PropsRuntime<'workbench.drawer.tasks'> & PropsLocale<typeof NS> & InjectFace<TaskBoardActionInjected>
 
 /** Closed-union exhaustiveness fence for the wire state set. */
 function assertNever(value: never): never {
@@ -69,14 +68,22 @@ function stateLabel(state: TaskRecord['state'], t: TranslateNS<typeof NS>): stri
 }
 
 /** One task row: state dot, identity, state word, revision, and verb buttons. */
-function TaskRow({ task, t, onCommand }: {
+function TaskRow({ task, t, onCommand, onOpen }: {
   task: TaskRecord
   t: TranslateNS<typeof NS>
   onCommand: (taskId: string, verb: TaskBoardVerb) => void
+  onOpen: (taskId: string) => void
 }) {
   const verbs = verbsFor(task)
   return (
-    <li className={css.row}>
+    <li
+      className={css.row}
+      tabIndex={0}
+      role="button"
+      aria-label={t('open', { taskId: task.taskId })}
+      onClick={() => { onOpen(task.taskId) }}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onOpen(task.taskId) }}
+    >
       <StateDot state={dotState(task.state)} className={css.rowDot} />
       <div className={css.rowMain}>
         <span className={css.taskId}>{task.taskId}</span>
@@ -85,7 +92,10 @@ function TaskRow({ task, t, onCommand }: {
       {verbs.length > 0 && (
         <div className={css.verbs}>
           {verbs.map(verb => (
-            <Button key={verb} size="sm" variant="ghost" onClick={() => { onCommand(task.taskId, verb) }}>
+            <Button key={verb} size="sm" variant="ghost" onClick={(event) => {
+              event.stopPropagation()
+              onCommand(task.taskId, verb)
+            }}>
               {t(`verb.${verb}` as const)}
             </Button>
           ))}
@@ -96,44 +106,33 @@ function TaskRow({ task, t, onCommand }: {
 }
 
 /**
- * Render the sidebar-foot board trigger and, when open, the task panel.
- * @param props - composed slot props (owner wide state, locale, inject face).
- * @returns the trigger element; the open panel portals through Modal.
+ * Render the drawer's task-list tab body: the cross-session task list with
+ * per-row verbs; opening a row switches the drawer to that task's detail.
+ * @param props - composed slot props (owner openDetail, locale, inject face).
+ * @returns the task list panel filling the drawer's tab body.
  */
 export function TaskBoardAction(props: TaskBoardActionProps) {
-  const { wide, t, useBoard, refresh, command } = props
-  const [open, setOpen] = useState(false)
+  const { openDetail, t, useBoard, refresh, command } = props
   const board = useBoard(state => state)
   return (
-    <>
-      <button
-        type="button"
-        className={wide ? css.trigger : css.triggerRail}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => { setOpen(!open) }}
-      >
-        {t('trigger')}
-      </button>
-      <Modal open={open} onClose={() => { setOpen(false) }} title={t('title')} closeLabel={t('close')}>
-        <div className={css.panel}>
-          {board.status === 'loading' && <p className={css.statusLine}>{t('loading')}</p>}
-          {board.error !== undefined && (
-            <p className={css.errorLine} role="alert">
-              {t(board.status === 'failed' ? 'error.load' : 'error.command', { code: board.error })}
-            </p>
-          )}
-          {board.status !== 'loading' && board.tasks.length === 0 && <p className={css.statusLine}>{t('empty')}</p>}
-          {board.tasks.length > 0 && (
-            <ul className={css.list}>
-              {board.tasks.map(task => <TaskRow key={task.taskId} task={task} t={t} onCommand={command} />)}
-            </ul>
-          )}
-          <div className={css.footer}>
-            <Button size="sm" variant="outline" onClick={refresh}>{t('refresh')}</Button>
-          </div>
-        </div>
-      </Modal>
-    </>
+    <div className={css.panel}>
+      {board.status === 'loading' && <p className={css.statusLine}>{t('loading')}</p>}
+      {board.error !== undefined && (
+        <p className={css.errorLine} role="alert">
+          {t(board.status === 'failed' ? 'error.load' : 'error.command', { code: board.error })}
+        </p>
+      )}
+      {board.status !== 'loading' && board.tasks.length === 0 && <p className={css.statusLine}>{t('empty')}</p>}
+      {board.tasks.length > 0 && (
+        <ul className={css.list}>
+          {board.tasks.map(task => (
+            <TaskRow key={task.taskId} task={task} t={t} onCommand={command} onOpen={openDetail} />
+          ))}
+        </ul>
+      )}
+      <div className={css.footer}>
+        <Button size="sm" variant="outline" onClick={refresh}>{t('refresh')}</Button>
+      </div>
+    </div>
   )
 }

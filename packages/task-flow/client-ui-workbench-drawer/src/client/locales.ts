@@ -1,0 +1,49 @@
+/**
+ * Drawer copy: the trigger, the tab labels, the close/resize affordances,
+ * and the detail tab's empty state. Registered under one namespace by the
+ * client plugin body; the framework synthesizes the typed `t` seat.
+ */
+
+/** Namespace key of the drawer's dictionary. */
+export const NS = 'workbenchDrawer' as const
+
+/** Dictionary keys the drawer registers. */
+export type WorkbenchDrawerKey =
+  | 'trigger'
+  | 'tab.tasks'
+  | 'tab.inbox'
+  | 'tab.detail'
+  | 'close'
+  | 'resize'
+  | 'badge.open'
+  | 'state.active'
+  | 'state.idle'
+  | 'detail.empty'
+
+/** Chinese dictionary (product copy language). */
+export const zh = {
+  'trigger': '任务流程',
+  'tab.tasks': '任务',
+  'tab.inbox': '收件箱',
+  'tab.detail': '详情',
+  'close': '关闭',
+  'resize': '拖动调整宽度',
+  'badge.open': '{count} 项待处理',
+  'state.active': '有任务运行中',
+  'state.idle': '无运行中任务',
+  'detail.empty': '从任务列表选择一个任务查看详情',
+} as const satisfies Record<WorkbenchDrawerKey, string>
+
+/** English dictionary. */
+export const en = {
+  'trigger': 'Task Flow',
+  'tab.tasks': 'Tasks',
+  'tab.inbox': 'Inbox',
+  'tab.detail': 'Detail',
+  'close': 'Close',
+  'resize': 'Drag to resize',
+  'badge.open': '{count} items pending',
+  'state.active': 'Tasks running',
+  'state.idle': 'No running tasks',
+  'detail.empty': 'Select a task from the list to see its detail',
+} as const satisfies Record<WorkbenchDrawerKey, string>

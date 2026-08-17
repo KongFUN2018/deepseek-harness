@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { AttentionItemView, AttentionItemKind, AttentionItemStatus, BatchConfirmItem } from '@deepseek-ai/dsh-workbench-host/types'
-import { Button, Input, Modal, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Input, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-// Type-only: pulls ui-sidebar's SlotMap merge (the 'sidebar.footer.action' entry).
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+// Type-only: pulls the drawer shell's SlotMap merge (the 'workbench.drawer.inbox' seat).
+import type {} from '@deepseek-ai/dsh-client-ui-workbench-drawer/client'
 import { batchable, decidable, type InboxState } from './inbox.ts'
 import { NS } from './locales.ts'
 import css from './AttentionInboxAction.module.css'
@@ -24,9 +24,9 @@ export interface AttentionInboxActionInjected {
   decide: (itemId: string, decision: string) => void
 }
 
-/** Full props for the sidebar-foot inbox trigger and panel. */
+/** Full props for the drawer's attention-inbox tab body. */
 export type AttentionInboxActionProps =
-  PropsRuntime<'sidebar.footer.action'> & PropsLocale<typeof NS> & InjectFace<AttentionInboxActionInjected>
+  PropsRuntime<'workbench.drawer.inbox'> & PropsLocale<typeof NS> & InjectFace<AttentionInboxActionInjected>
 
 /** Closed-union exhaustiveness fence for the wire kind set. */
 /* v8 ignore next 3 -- closed-union backstop; only reached if a kind is forged */
@@ -129,13 +129,14 @@ function ReadonlyRow({ item, t }: {
 }
 
 /**
- * Render the sidebar-foot inbox trigger and, when open, the decision panel.
- * @param props - composed slot props (owner wide state, locale, inject face).
- * @returns the trigger element; the open panel portals through Modal.
+ * Render the drawer's attention-inbox tab body: the B batch-confirm list,
+ * the C single-decision rows, and the read-only items, over the controller
+ * store through the inject face.
+ * @param props - composed slot props (locale, inject face).
+ * @returns the inbox panel filling the drawer's tab body.
  */
 export function AttentionInboxAction(props: AttentionInboxActionProps) {
-  const { wide, t, useInbox, refresh, confirm, decide } = props
-  const [open, setOpen] = useState(false)
+  const { t, useInbox, refresh, confirm, decide } = props
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const inbox = useInbox(state => state)
@@ -160,52 +161,54 @@ export function AttentionInboxAction(props: AttentionInboxActionProps) {
     setDrafts(prev => ({ ...prev, [itemId]: '' }))
   }
   return (
-    <>
-      <button
-        type="button"
-        className={wide ? css.trigger : css.triggerRail}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => { setOpen(!open) }}
-      >
-        {t('trigger')}
-      </button>
-      <Modal open={open} onClose={() => { setOpen(false) }} title={t('title')} closeLabel={t('close')}>
-        <div className={css.panel}>
-          {inbox.status === 'loading' && <p className={css.statusLine}>{t('loading')}</p>}
-          {inbox.error !== undefined && inbox.error.startsWith('conflict:') && inbox.conflictCount > 0 && (
-            <p className={css.errorLine} role="alert">{t('error.conflict', { count: inbox.conflictCount })}</p>
-          )}
-          {inbox.error !== undefined && !inbox.error.startsWith('conflict:') && (
-            <p className={css.errorLine} role="alert">{t(inbox.status === 'failed' ? 'error.load' : 'error.command', { code: inbox.error })}</p>
-          )}
-          {inbox.status !== 'loading' && inbox.items.length === 0 && <p className={css.statusLine}>{t('empty')}</p>}
-          {batchItems.length > 0 && (
-            <>
-              <ul className={css.list}>
-                {batchItems.map(item => (
-                  <BatchRow key={String(item.itemId)} item={item} checked={selected.has(String(item.itemId))} onToggle={toggle} t={t} />
-                ))}
-              </ul>
-              <div className={css.footer}>
-                <Button size="sm" variant="primary" disabled={selected.size === 0} onClick={submitBatch}>{t('confirm')}</Button>
-                <Button size="sm" variant="outline" onClick={refresh}>{t('refresh')}</Button>
-              </div>
-            </>
-          )}
-          {decisionItems.map(item => (
-            <DecisionRow key={String(item.itemId)} item={item} draft={drafts[String(item.itemId)] ?? ''} onDraft={(id, value) => { setDrafts(prev => ({ ...prev, [id]: value })) }} onSubmit={submitDecision} t={t} />
-          ))}
-          {readonlyItems.map(item => (
-            <ReadonlyRow key={String(item.itemId)} item={item} t={t} />
-          ))}
-          {decisionItems.length > 0 || readonlyItems.length > 0 ? (
-            <div className={css.footer}>
-              <Button size="sm" variant="outline" onClick={refresh}>{t('refresh')}</Button>
-            </div>
-          ) : null}
-        </div>
-      </Modal>
-    </>
+    <div className={css.panel}>
+      {inbox.status === 'loading' && <p className={css.statusLine}>{t('loading')}</p>}
+      {inbox.error !== undefined && inbox.error.startsWith('conflict:') && inbox.conflictCount > 0 && (
+        <p className={css.errorLine} role="alert">{t('error.conflict', { count: inbox.conflictCount })}</p>
+      )}
+      {inbox.error !== undefined && !inbox.error.startsWith('conflict:') && (
+        <p className={css.errorLine} role="alert">{t(inbox.status === 'failed' ? 'error.load' : 'error.command', { code: inbox.error })}</p>
+      )}
+      {inbox.status !== 'loading' && inbox.items.length === 0 && <p className={css.statusLine}>{t('empty')}</p>}
+      {batchItems.length > 0 && (
+        <section className={css.section}>
+          <h3 className={css.sectionTitle}>{t('section.batch')}</h3>
+          <ul className={css.list}>
+            {batchItems.map(item => (
+              <BatchRow key={String(item.itemId)} item={item} checked={selected.has(String(item.itemId))} onToggle={toggle} t={t} />
+            ))}
+          </ul>
+          <div className={css.batchbar}>
+            <span className={css.batchCount}>{t('selected', { count: selected.size })}</span>
+            <span className={css.batchSpacer} />
+            <Button size="sm" variant="ghost" disabled={selected.size === 0} onClick={() => { setSelected(new Set()) }}>{t('clear')}</Button>
+            <Button size="sm" variant="primary" disabled={selected.size === 0} onClick={submitBatch}>{t('confirm')}</Button>
+          </div>
+        </section>
+      )}
+      {decisionItems.length > 0 && (
+        <section className={css.section}>
+          <h3 className={css.sectionTitle}>{t('section.decision')}</h3>
+          <ul className={css.list}>
+            {decisionItems.map(item => (
+              <DecisionRow key={String(item.itemId)} item={item} draft={drafts[String(item.itemId)] ?? ''} onDraft={(id, value) => { setDrafts(prev => ({ ...prev, [id]: value })) }} onSubmit={submitDecision} t={t} />
+            ))}
+          </ul>
+        </section>
+      )}
+      {readonlyItems.length > 0 && (
+        <section className={css.section}>
+          <h3 className={css.sectionTitle}>{t('section.readonly')}</h3>
+          <ul className={css.list}>
+            {readonlyItems.map(item => (
+              <ReadonlyRow key={String(item.itemId)} item={item} t={t} />
+            ))}
+          </ul>
+        </section>
+      )}
+      <div className={css.footer}>
+        <Button size="sm" variant="outline" onClick={refresh}>{t('refresh')}</Button>
+      </div>
+    </div>
   )
 }

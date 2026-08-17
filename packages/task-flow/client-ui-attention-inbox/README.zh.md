@@ -2,12 +2,12 @@
 
 [English](README.md) | 中文
 
-工作台注意力通道的浏览器半边：一个 `sidebar.footer.action` 入口，其触发打开决策收件箱面板。收件箱通过生成的 `workbenchHost` Remote 呈现待决注意力项，折叠转发的 `workbench/attention-updated` 事件，在重连时重放 `workbenchHostStream` 增量，并以每行的 compare-and-set 修订发起批量确认与单决策动词。未决结果（冲突、过时、已撤回、已处理，或无效选项）从不被静默移除——其数量被展示并重新同步列表。
+工作台注意力通道的浏览器半边：一个 `workbench.drawer.inbox` 入口，填充工作台抽屉的收件箱标签页。收件箱通过生成的 `workbenchHost` Remote 呈现待决注意力项，折叠转发的 `workbench/attention-updated` 事件，在重连时重放 `workbenchHostStream` 增量，并以每行的 compare-and-set 修订发起批量确认与单决策动词。未决结果（冲突、过时、已撤回、已处理，或无效选项）从不被静默移除——其数量被展示并重新同步列表。
 
 ## 呈现面
 
-- 占用 `sidebar.footer.action`（ui-sidebar 声明，可加列表槽），id 为 `attention-inbox`。
-- 面板以模态打开。B 类（`b-confirm`）行可勾选并批量确认；C 类（`c-decision`）行带决策输入与提交动词；澄清/恢复行只读呈现。
+- 以唯一占用者身份占位 `workbench.drawer.inbox`（client-ui-workbench-drawer 的 shell.overlay entry 声明）。
+- B 类（`b-confirm`）行在带选中计数与清除控制的粘性操作条下勾选并批量确认；C 类（`c-decision`）行带决策输入与提交动词；澄清/恢复行在跟踪区只读呈现。
 
 ## 对象层
 
