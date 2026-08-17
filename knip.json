@@ -781,6 +781,9 @@
       "project": [
         "src/**/*.ts",
         "tests/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "zod"
       ]
     },
     "packages/task-flow/budget": {

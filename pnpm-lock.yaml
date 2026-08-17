@@ -1076,6 +1076,12 @@ importers:
       '@deepseek-ai/dsh-bash-sandbox':
         specifier: workspace:^
         version: link:../../shell/bash-sandbox
+      '@deepseek-ai/dsh-budget':
+        specifier: workspace:^
+        version: link:../../task-flow/budget
+      '@deepseek-ai/dsh-clarification':
+        specifier: workspace:^
+        version: link:../../task-flow/clarification
       '@deepseek-ai/dsh-command-compact':
         specifier: workspace:^
         version: link:../../compaction/command-compact
@@ -1112,6 +1118,9 @@ importers:
       '@deepseek-ai/dsh-fs-sandbox':
         specifier: workspace:^
         version: link:../../fs/fs-sandbox
+      '@deepseek-ai/dsh-gate':
+        specifier: workspace:^
+        version: link:../../task-flow/gate
       '@deepseek-ai/dsh-goal':
         specifier: workspace:^
         version: link:../../goal/goal
@@ -1151,9 +1160,18 @@ importers:
       '@deepseek-ai/dsh-recipe-engine-core':
         specifier: workspace:^
         version: link:../../task-flow/recipe-engine-core
+      '@deepseek-ai/dsh-recipe-multiphase':
+        specifier: workspace:^
+        version: link:../../task-flow/recipe-multiphase
       '@deepseek-ai/dsh-repeat-tool-reminder':
         specifier: workspace:^
         version: link:../../guard/repeat-tool-reminder
+      '@deepseek-ai/dsh-review-policy':
+        specifier: workspace:^
+        version: link:../../task-flow/review-policy
+      '@deepseek-ai/dsh-rewind':
+        specifier: workspace:^
+        version: link:../../task-flow/rewind
       '@deepseek-ai/dsh-sandbox-local':
         specifier: workspace:^
         version: link:../../sandbox/sandbox-local
@@ -8149,6 +8167,10 @@ importers:
         version: link:../workbench-journal
 
   packages/task-flow/rewind:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^

@@ -262,6 +262,21 @@
     - id: attention
       name: '@deepseek-ai/dsh-attention'
 
+    # Task-flow gate: runs a phase's check list, parks the run on B/C checks
+    # through attention items, and emits gate-check/recorded for the breaker.
+    - id: gate
+      name: '@deepseek-ai/dsh-gate'
+
+    # Task-flow clarification: persistent clarification requests whose answers
+    # inject as user messages and journal facts once all required are in.
+    - id: clarification
+      name: '@deepseek-ai/dsh-clarification'
+
+    # Task-flow multiphase recipe executor: routes a phase by kind to its
+    # contributed executor; the aggregate the recipe engine drives.
+    - id: recipe-multiphase
+      name: '@deepseek-ai/dsh-recipe-multiphase'
+
     # Workbench attention-channel host service: cross-session Remote reads and
     # compare-and-set commands plus the forwarded push event. Stays on the host
     # plane for the same reason as `goals` — the Gateway resolves it as a
