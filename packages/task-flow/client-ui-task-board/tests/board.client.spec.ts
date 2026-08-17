@@ -48,8 +48,15 @@ async function bench(script: {
   const loads = vi.fn()
   const listeners = new Map<string, Listener>()
   ctx.reflect.provide('remote', {
+    metrics: {
+      metrics: async () => ({
+        ok: true as const,
+        value: { live: 0, gate: 0, ask: 0, asset: 0, throughput: [], gatePassRate: { a: 0, b: 0, c: 0 } },
+      }),
+    },
     tasks: {
       listTasks: async () => { loads(); return list },
+      listPhaseRuns: async () => ({ ok: true as const, value: [] }),
       requestPause: async (taskId: string, mutation: TaskMutationContext) => {
         mutations.pause.push({ taskId, ...mutation })
         return verbResult(script.pause)

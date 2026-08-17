@@ -144,6 +144,9 @@ export interface GateCheckResult {
   readonly submissionId: SubmissionId
   readonly checkId: string
   readonly passed: boolean
+  /** Gate class (M6): 'A' machine-mandatory, 'B' machine+human confirm, 'C' human arbitration.
+   *  Absent on pre-M6 records; readers default to 'A'. */
+  readonly kind?: 'A' | 'B' | 'C'
   readonly detail?: string
   readonly recordedAt: number
   /** Set by impact propagation when the closure covers this verdict; a staled verdict supports no pass decision. */

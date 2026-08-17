@@ -5,6 +5,13 @@ export const NS = 'taskBoard'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'kpi.live': '运行中任务',
+  'kpi.gate': '待审查项',
+  'kpi.ask': '未决疑问',
+  'kpi.asset': '已登记产物',
+  'kpi.empty': '—',
+  'phase.progress': '阶段 {current}/{total}',
+  'recipe': '模板 {recipeId}',
   'refresh': '刷新',
   'loading': '加载中…',
   'empty': '暂无任务',
@@ -29,6 +36,13 @@ export const zh = {
 
 /** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<TaskBoardKey, string> = {
+  'kpi.live': 'Live tasks',
+  'kpi.gate': 'Awaiting review',
+  'kpi.ask': 'Open questions',
+  'kpi.asset': 'Registered assets',
+  'kpi.empty': '—',
+  'phase.progress': 'Phase {current}/{total}',
+  'recipe': 'Recipe {recipeId}',
   'refresh': 'Refresh',
   'loading': 'Loading…',
   'empty': 'No tasks yet',

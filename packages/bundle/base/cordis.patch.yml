@@ -331,6 +331,16 @@
     - id: review-policy
       name: '@deepseek-ai/dsh-review-policy'
 
+    # Task-flow digest: journal-derived per-task read projection (run
+    # branches, timeline, phase summaries, decisions, deliverable states).
+    - id: digest
+      name: '@deepseek-ai/dsh-digest'
+
+    # Task-flow metrics: workbench KPI counts (live/gate/ask/asset,
+    # throughput, gate pass rates) and per-task measures.
+    - id: metrics
+      name: '@deepseek-ai/dsh-metrics'
+
     # Task-flow durable task provider: implements the task storage hooks over
     # the storage stack and appends journal facts as commit points.
     - id: task-local

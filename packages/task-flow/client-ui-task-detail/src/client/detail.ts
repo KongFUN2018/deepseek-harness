@@ -10,6 +10,7 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 // Type-only: pulls the generated tasks Remote namespace into this compilation program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { GateCheckResult, PhaseRunRecord, TaskRecord } from '@deepseek-ai/dsh-task/types'
+import type { TaskDigest } from '@deepseek-ai/dsh-digest/types'
 
 /** Lifecycle of the detail panel's load. */
 export type TaskDetailStatus = 'idle' | 'loading' | 'ready' | 'failed'
@@ -24,6 +25,8 @@ export interface TaskDetailState {
   readonly phaseRuns: readonly PhaseRunRecord[]
   /** Gate verdicts across the loaded phase runs, in recording order. */
   readonly gateResults: readonly GateCheckResult[]
+  /** Journal-derived digest of the task: run branches and timeline; absent when the digest read fails. */
+  readonly digest: TaskDigest | undefined
   /** Failure code of the last failed load. */
   readonly error?: string | undefined
 }
@@ -43,7 +46,7 @@ export class TaskDetailController {
    */
   constructor(ctx: ClientContext) {
     this.ctx = ctx
-    this.store = createSnapshotStore<TaskDetailState>({ status: 'idle', phaseRuns: [], gateResults: [] })
+    this.store = createSnapshotStore<TaskDetailState>({ status: 'idle', phaseRuns: [], gateResults: [], digest: undefined })
   }
 
   /**
@@ -55,14 +58,14 @@ export class TaskDetailController {
   async load(taskId: string): Promise<void> {
     const id = taskId.trim()
     if (id === '') return
-    this.store.set({ status: 'loading', phaseRuns: [], gateResults: [] })
+    this.store.set({ status: 'loading', phaseRuns: [], gateResults: [], digest: undefined })
     const task = await this.ctx.remote.tasks.getTask(id)
     if (!task.ok) {
-      this.store.set({ status: 'failed', error: task.error.code, phaseRuns: [], gateResults: [] })
+      this.store.set({ status: 'failed', error: task.error.code, phaseRuns: [], gateResults: [], digest: undefined })
       return
     }
     if (task.value === undefined) {
-      this.store.set({ status: 'failed', error: 'not-found', phaseRuns: [], gateResults: [] })
+      this.store.set({ status: 'failed', error: 'not-found', phaseRuns: [], gateResults: [], digest: undefined })
       return
     }
     const runId = task.value.currentRunId
@@ -70,7 +73,7 @@ export class TaskDetailController {
       ? { ok: true as const, value: [] as PhaseRunRecord[] }
       : await this.ctx.remote.tasks.listPhaseRuns(String(runId))
     if (!phases.ok) {
-      this.store.set({ status: 'failed', error: phases.error.code, task: task.value, phaseRuns: [], gateResults: [] })
+      this.store.set({ status: 'failed', error: phases.error.code, task: task.value, phaseRuns: [], gateResults: [], digest: undefined })
       return
     }
     const gateResults: GateCheckResult[] = []
@@ -79,6 +82,10 @@ export class TaskDetailController {
       const gates = await this.ctx.remote.tasks.listGateResults(String(phase.activeSubmissionId))
       if (gates.ok) gateResults.push(...gates.value)
     }
-    this.store.set({ status: 'ready', task: task.value, phaseRuns: phases.value, gateResults, error: undefined })
+    // The digest rides the same load as an enrichment: a failed digest read
+    // keeps the projection usable without run branches and timeline.
+    const digestResult = await this.ctx.remote.digest.digest(id)
+    const digest = digestResult.ok ? digestResult.value : undefined
+    this.store.set({ status: 'ready', task: task.value, phaseRuns: phases.value, gateResults, digest, error: undefined })
   }
 }

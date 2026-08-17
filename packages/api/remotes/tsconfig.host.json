@@ -31,6 +31,8 @@
     {
       "path": "../../task-flow/deliverable-local"
     },
+    { "path": "../../task-flow/digest" },
+    { "path": "../../task-flow/metrics" },
     {
       "path": "../../credentials/credentials"
     },

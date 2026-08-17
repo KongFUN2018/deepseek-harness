@@ -62,7 +62,7 @@ function makeProps(state: TaskDetailState, taskId: string | undefined = 't-1'): 
   return { props: composed, load }
 }
 
-const idle = (): TaskDetailState => ({ status: 'idle', phaseRuns: [], gateResults: [] })
+const idle = (): TaskDetailState => ({ status: 'idle', phaseRuns: [], gateResults: [], digest: undefined })
 
 describe('TaskDetailAction', () => {
   it('loads the owner task id on mount and renders the task, phase runs, and verdicts', () => {
@@ -81,7 +81,7 @@ describe('TaskDetailAction', () => {
       passed: true,
       recordedAt: 1,
     }
-    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [phase], gateResults: [gate] }, String(row.taskId))
+    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [phase], gateResults: [gate], digest: undefined }, String(row.taskId))
     render(<TaskDetailAction {...props} />)
     expect(load).toHaveBeenCalledWith(String(row.taskId))
     expect(screen.getByText('phase-a')).toBeTruthy()
@@ -90,7 +90,7 @@ describe('TaskDetailAction', () => {
 
   it('reloads when the owner switches the task id', () => {
     const row = task()
-    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [] }, 't-1')
+    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [], digest: undefined }, 't-1')
     const { rerender } = render(<TaskDetailAction {...props} />)
     expect(load).toHaveBeenCalledWith('t-1')
     load.mockClear()
@@ -106,13 +106,13 @@ describe('TaskDetailAction', () => {
   })
 
   it('shows the not-found line for a missing task', () => {
-    const { props } = makeProps({ status: 'failed', error: 'not-found', phaseRuns: [], gateResults: [] })
+    const { props } = makeProps({ status: 'failed', error: 'not-found', phaseRuns: [], gateResults: [], digest: undefined })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByRole('alert').textContent).toBe(zh['not-found'])
   })
 
   it('renders the loading panel', () => {
-    const loading = makeProps({ status: 'loading', phaseRuns: [], gateResults: [] })
+    const loading = makeProps({ status: 'loading', phaseRuns: [], gateResults: [], digest: undefined })
     render(<TaskDetailAction {...loading.props} />)
     expect(screen.getByText(zh.loading)).toBeTruthy()
   })
@@ -124,7 +124,7 @@ describe('TaskDetailAction', () => {
     ] as const
     for (const state of states) {
       const row = task()
-      const { props } = makeProps({ status: 'ready', task: { ...row, state }, phaseRuns: [], gateResults: [] })
+      const { props } = makeProps({ status: 'ready', task: { ...row, state }, phaseRuns: [], gateResults: [], digest: undefined })
       render(<TaskDetailAction {...props} />)
       const metas = screen.getAllByText((_, element) =>
         element?.textContent?.includes(state) === true && element.textContent.includes('版本'))
@@ -134,20 +134,20 @@ describe('TaskDetailAction', () => {
   })
 
   it('shows the load-failure line for a non-missing error', () => {
-    const { props } = makeProps({ status: 'failed', error: 'unavailable', phaseRuns: [], gateResults: [] })
+    const { props } = makeProps({ status: 'failed', error: 'unavailable', phaseRuns: [], gateResults: [], digest: undefined })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByRole('alert').textContent).toContain('unavailable')
   })
 
   it('renders the load-failure line when a failure carries no code', () => {
-    const { props } = makeProps({ status: 'failed', phaseRuns: [], gateResults: [] })
+    const { props } = makeProps({ status: 'failed', phaseRuns: [], gateResults: [], digest: undefined })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByRole('alert').textContent).toContain(zh['error.load'].split('{code}')[0])
   })
 
   it('shows the none line for empty phase runs and verdicts', () => {
     const row = task()
-    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [] })
+    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [], digest: undefined })
     render(<TaskDetailAction {...props} />)
     expect(screen.getAllByText(zh.none).length).toBe(2)
   })
@@ -160,7 +160,7 @@ describe('TaskDetailAction', () => {
       passed: false,
       recordedAt: 1,
     }
-    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [gate] })
+    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [gate], digest: undefined })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByText(zh.failed)).toBeTruthy()
   })
@@ -193,6 +193,12 @@ async function boot() {
     }
   }
   new RemoteService(ctx)
+  ctx.provide('remote.digest', {
+    digest: async () => ({ ok: true as const, value: {
+      taskId: 't-1' as never, state: 'running', revision: 1, runs: [], timeline: [],
+      phaseSummaries: [], decisionHistory: [], deliverableStates: [],
+    } }),
+  } as never)
   ctx.provide('remote.tasks', {
     getTask: async () => ({ ok: true as const, value: undefined }),
     listPhaseRuns: async () => ({ ok: true as const, value: [] }),
@@ -207,7 +213,7 @@ async function boot() {
 
 describe('task-detail browser half', () => {
   it('declares the services it binds', () => {
-    expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'locale'])
+    expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'remote.digest', 'locale'])
   })
 
   it('registers the drawer seat entry, and fiber teardown removes it (HMR safety)', async () => {

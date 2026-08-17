@@ -1778,7 +1778,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     doc: 'The task-list tab body of the workbench drawer. Declared by the drawer\nshell\'s `shell.overlay` entry; the task board package registers the\ncross-session task list here.',
     registerOptions: [],
     ownerProps: [
-      '/** Owner share of the task-list seat: navigation into the detail tab. */\nexport interface DrawerTasksOwnerProps {\n  /** Open one task\'s detail view: switches the drawer to the detail tab. */\n  openDetail: (taskId: string) => void\n}',
+      '/** Owner share of the task-list seat: navigation into the drawer\'s other tabs. */\nexport interface DrawerTasksOwnerProps {\n  /** Open one task\'s detail view: switches the drawer to the detail tab. */\n  openDetail: (taskId: string) => void\n  /** Switch the drawer to the attention-inbox tab (KPI GATE/ASK drill-down). */\n  openInbox: () => void\n}',
     ],
     ownerPropsReferences: [],
     standardProps: [

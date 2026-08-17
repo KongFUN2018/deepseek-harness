@@ -179,6 +179,8 @@
     { "path": "./packages/task-flow/edit-lock" },
     { "path": "./packages/task-flow/rewind" },
     { "path": "./packages/task-flow/budget" },
+    { "path": "./packages/task-flow/digest" },
+    { "path": "./packages/task-flow/metrics" },
     { "path": "./packages/task-flow/review-policy" },
     { "path": "./packages/task-flow/task-local" },
     { "path": "./packages/task-flow/recipe-engine-core" },

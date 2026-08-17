@@ -62,7 +62,9 @@ function makeProps(state: TaskBoardState): {
   // The framework's global standard props (useSessions/useWorkspaces) are
   // unused by this component; stable no-op stubs satisfy the share contract.
   const unusedGlobal = { getSnapshot: () => ({}), subscribe: () => () => {} } as never
+  const openInbox = vi.fn()
   const composed: TaskBoardActionProps = {
+    openInbox,
     openDetail,
     t,
     useBoard,
@@ -80,7 +82,7 @@ function makeProps(state: TaskBoardState): {
   }
 }
 
-const ready = (tasks: readonly TaskRecord[]): TaskBoardState => ({ status: 'ready', tasks, updatedAt: 1 })
+const ready = (tasks: readonly TaskRecord[]): TaskBoardState => ({ status: 'ready', tasks, metrics: undefined, phaseProgress: new Map(), updatedAt: 1 })
 
 describe('TaskBoardAction', () => {
   it('renders rows with state words and verbs', () => {
@@ -89,8 +91,8 @@ describe('TaskBoardAction', () => {
     const { props, command } = makeProps(ready([running, done]))
     render(<TaskBoardAction {...props} />)
     expect(screen.getByText('t-run')).toBeTruthy()
-    expect(screen.getByText(`${zh['state.running']} · 版本 4`)).toBeTruthy()
-    expect(screen.getByText(`${zh['state.completed']} · 版本 4`)).toBeTruthy()
+    expect(screen.getByText(`${zh['state.running']} · 版本 4 · ${zh.recipe.replace('{recipeId}', 'recipe-a')}`)).toBeTruthy()
+    expect(screen.getByText(`${zh['state.completed']} · 版本 4 · ${zh.recipe.replace('{recipeId}', 'recipe-a')}`)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: zh['verb.pause'] }))
     expect(command).toHaveBeenCalledWith('t-run', 'pause')
     expect(screen.queryByRole('button', { name: zh['verb.resume'] })).toBeNull()
@@ -114,7 +116,7 @@ describe('TaskBoardAction', () => {
   })
 
   it('renders the loading, empty, and failed panels', () => {
-    const loading = makeProps({ status: 'loading', tasks: [], updatedAt: 0 })
+    const loading = makeProps({ status: 'loading', tasks: [], metrics: undefined, phaseProgress: new Map(), updatedAt: 0 })
     render(<TaskBoardAction {...loading.props} />)
     expect(screen.getByText(zh.loading)).toBeTruthy()
     cleanup()
@@ -124,13 +126,13 @@ describe('TaskBoardAction', () => {
     expect(screen.getByText(zh.empty)).toBeTruthy()
     cleanup()
 
-    const failed = makeProps({ status: 'failed', tasks: [], error: 'unavailable', updatedAt: 0 })
+    const failed = makeProps({ status: 'failed', tasks: [], metrics: undefined, phaseProgress: new Map(), error: 'unavailable', updatedAt: 0 })
     render(<TaskBoardAction {...failed.props} />)
     expect(screen.getByRole('alert').textContent).toContain('unavailable')
   })
 
   it('shows the command-failure line with the code until the next successful command', () => {
-    const board = makeProps({ status: 'ready', tasks: [task()], error: 'stale-revision', updatedAt: 1 })
+    const board = makeProps({ status: 'ready', tasks: [task()], metrics: undefined, phaseProgress: new Map(), error: 'stale-revision', updatedAt: 1 })
     render(<TaskBoardAction {...board.props} />)
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('stale-revision')
@@ -191,6 +193,13 @@ async function boot(options: { loadFails?: boolean } = {}) {
     listTasks: options.loadFails
       ? async () => ({ ok: false as const, error: { code: 'unavailable', message: 'x', details: {} } })
       : async () => ({ ok: true as const, value: [] }),
+    listPhaseRuns: async () => ({ ok: true as const, value: [] }),
+  } as never)
+  ctx.provide('remote.metrics', {
+    metrics: async () => ({
+      ok: true as const,
+      value: { live: 0, gate: 0, ask: 0, asset: 0, throughput: [], gatePassRate: { a: 0, b: 0, c: 0 } },
+    }),
   } as never)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
@@ -201,7 +210,7 @@ async function boot(options: { loadFails?: boolean } = {}) {
 
 describe('task-board browser half', () => {
   it('declares the services it binds', () => {
-    expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'locale'])
+    expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'remote.metrics', 'locale'])
   })
 
   it('registers the drawer seat entry, and fiber teardown removes it (HMR safety)', async () => {
@@ -263,7 +272,13 @@ describe('task-board browser half', () => {
       }
     }
     new RemoteService(ctx)
-    ctx.provide('remote.tasks', { listTasks } as never)
+    ctx.provide('remote.tasks', { listTasks, listPhaseRuns: async () => ({ ok: true, value: [] }) } as never)
+    ctx.provide('remote.metrics', {
+      metrics: async () => ({
+        ok: true,
+        value: { live: 0, gate: 0, ask: 0, asset: 0, throughput: [], gatePassRate: { a: 0, b: 0, c: 0 } },
+      }),
+    } as never)
     ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
     const fiber = ctx.plugin({ inject: [...inject], apply })

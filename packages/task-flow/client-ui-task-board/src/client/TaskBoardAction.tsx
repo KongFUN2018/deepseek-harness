@@ -3,7 +3,7 @@ import { Button, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the drawer shell's SlotMap merge (the 'workbench.drawer.tasks' seat).
 import type {} from '@deepseek-ai/dsh-client-ui-workbench-drawer/client'
-import { verbsFor, type TaskBoardState, type TaskBoardVerb } from './board.ts'
+import { verbsFor, type PhaseProgress, type TaskBoardState, type TaskBoardVerb } from './board.ts'
 import { NS } from './locales.ts'
 import css from './TaskBoardAction.module.css'
 
@@ -67,9 +67,10 @@ function stateLabel(state: TaskRecord['state'], t: TranslateNS<typeof NS>): stri
   }
 }
 
-/** One task row: state dot, identity, state word, revision, and verb buttons. */
-function TaskRow({ task, t, onCommand, onOpen }: {
+/** One task row: state dot, identity, recipe, phase progress, and verb buttons. */
+function TaskRow({ task, progress, t, onCommand, onOpen }: {
   task: TaskRecord
+  progress: PhaseProgress | undefined
   t: TranslateNS<typeof NS>
   onCommand: (taskId: string, verb: TaskBoardVerb) => void
   onOpen: (taskId: string) => void
@@ -87,7 +88,11 @@ function TaskRow({ task, t, onCommand, onOpen }: {
       <StateDot state={dotState(task.state)} className={css.rowDot} />
       <div className={css.rowMain}>
         <span className={css.taskId}>{task.taskId}</span>
-        <span className={css.meta}>{stateLabel(task.state, t)} · {t('revision', { revision: task.revision })}</span>
+        <span className={css.meta}>
+          {stateLabel(task.state, t)} · {t('revision', { revision: task.revision })}
+          {' '}· {t('recipe', { recipeId: String(task.pinnedRecipe.recipeId) })}
+          {progress !== undefined && progress.total > 0 && [' · ', t('phase.progress', { current: String(progress.current), total: String(progress.total) })]}
+        </span>
       </div>
       {verbs.length > 0 && (
         <div className={css.verbs}>
@@ -112,11 +117,31 @@ function TaskRow({ task, t, onCommand, onOpen }: {
  * @returns the task list panel filling the drawer's tab body.
  */
 export function TaskBoardAction(props: TaskBoardActionProps) {
-  const { openDetail, t, useBoard, refresh, command } = props
+  const { openDetail, openInbox, t, useBoard, refresh, command } = props
   const board = useBoard(state => state)
   return (
     <div className={css.panel}>
       {board.status === 'loading' && <p className={css.statusLine}>{t('loading')}</p>}
+      {board.metrics !== undefined && (
+        <div className={css.kpiRow}>
+          <div className={css.kpiCard}>
+            <span className={css.kpiValue}>{board.metrics.live}</span>
+            <span className={css.kpiLabel}>{t('kpi.live')}</span>
+          </div>
+          <button type="button" className={css.kpiCard} onClick={openInbox}>
+            <span className={css.kpiValue}>{board.metrics.gate}</span>
+            <span className={css.kpiLabel}>{t('kpi.gate')}</span>
+          </button>
+          <button type="button" className={css.kpiCard} onClick={openInbox}>
+            <span className={css.kpiValue}>{board.metrics.ask}</span>
+            <span className={css.kpiLabel}>{t('kpi.ask')}</span>
+          </button>
+          <div className={css.kpiCard}>
+            <span className={css.kpiValue}>{board.metrics.asset}</span>
+            <span className={css.kpiLabel}>{t('kpi.asset')}</span>
+          </div>
+        </div>
+      )}
       {board.error !== undefined && (
         <p className={css.errorLine} role="alert">
           {t(board.status === 'failed' ? 'error.load' : 'error.command', { code: board.error })}
@@ -126,7 +151,14 @@ export function TaskBoardAction(props: TaskBoardActionProps) {
       {board.tasks.length > 0 && (
         <ul className={css.list}>
           {board.tasks.map(task => (
-            <TaskRow key={task.taskId} task={task} t={t} onCommand={command} onOpen={openDetail} />
+            <TaskRow
+              key={task.taskId}
+              task={task}
+              progress={board.phaseProgress.get(String(task.taskId))}
+              t={t}
+              onCommand={command}
+              onOpen={openDetail}
+            />
           ))}
         </ul>
       )}

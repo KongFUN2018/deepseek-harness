@@ -11,6 +11,7 @@
     { "path": "../../api/remotes/tsconfig.client.json" },
     { "path": "../../../vendor/cordis" },
     { "path": "../../runtime-diagnostics/invariants" },
+    { "path": "../digest" },
     { "path": "../task" },
     { "path": "../client-ui-workbench-drawer" },
     { "path": "../../client/locale" },

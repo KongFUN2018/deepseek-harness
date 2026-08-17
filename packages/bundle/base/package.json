@@ -58,6 +58,8 @@
     "@deepseek-ai/dsh-rewind": "workspace:^",
     "@deepseek-ai/dsh-budget": "workspace:^",
     "@deepseek-ai/dsh-review-policy": "workspace:^",
+    "@deepseek-ai/dsh-digest": "workspace:^",
+    "@deepseek-ai/dsh-metrics": "workspace:^",
     "@deepseek-ai/dsh-workbench-host": "workspace:^",
     "@deepseek-ai/dsh-workbench-host-stream": "workspace:^",
     "@deepseek-ai/dsh-recipe": "workspace:^",

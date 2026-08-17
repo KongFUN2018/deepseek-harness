@@ -70,6 +70,11 @@ export function WorkbenchDrawer(props: WorkbenchDrawerProps) {
     setTab('detail')
   }, [])
 
+  /** Switch the drawer to the inbox tab (KPI GATE/ASK cards drill down here). */
+  const openInbox = useCallback(() => {
+    setTab('inbox')
+  }, [])
+
   // Switching a tab returns to that tab's semantic width; a user drag
   // overrides it only until the next switch.
   const selectTab = (next: DrawerTab) => {
@@ -164,7 +169,7 @@ export function WorkbenchDrawer(props: WorkbenchDrawerProps) {
             ))}
           </div>
           <div className={css.body}>
-            {tab === 'tasks' && renderSlot('workbench.drawer.tasks', { openDetail })}
+            {tab === 'tasks' && renderSlot('workbench.drawer.tasks', { openDetail, openInbox })}
             {tab === 'inbox' && renderSlot('workbench.drawer.inbox', {})}
             {tab === 'detail' && renderSlot('workbench.drawer.detail', { taskId: detailTaskId })}
           </div>

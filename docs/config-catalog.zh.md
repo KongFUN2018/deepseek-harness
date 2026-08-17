@@ -3091,6 +3091,7 @@ export interface Config {
 - `@deepseek-ai/dsh-commands`（[`packages/interaction/commands/src/index.ts`](../packages/interaction/commands/src/index.ts)）
 - `@deepseek-ai/dsh-cordis-client-runner`（[`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts)）
 - `@deepseek-ai/dsh-deliverable-local` — 需要 `storageDomain`（[`packages/task-flow/deliverable-local/src/index.ts`](../packages/task-flow/deliverable-local/src/index.ts)）
+- `@deepseek-ai/dsh-digest` — 需要 `tasks` · `workbenchJournal` · `deliverables`（[`packages/task-flow/digest/src/index.ts`](../packages/task-flow/digest/src/index.ts)）
 - `@deepseek-ai/dsh-fs-e2b` — 需要 `e2b`（[`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts)）
 - `@deepseek-ai/dsh-fs-observation-policy`（[`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts)）
 - `@deepseek-ai/dsh-gate` — 需要 `tasks` · `recipes` · `attention`（[`packages/task-flow/gate/src/index.ts`](../packages/task-flow/gate/src/index.ts)）
@@ -3101,6 +3102,7 @@ export interface Config {
 - `@deepseek-ai/dsh-impact-propagation` — 需要 `deliverables` · `tasks` · `workbenchJournal`（[`packages/task-flow/impact-propagation/src/index.ts`](../packages/task-flow/impact-propagation/src/index.ts)）
 - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
 - `@deepseek-ai/dsh-lsp`（[`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts)）
+- `@deepseek-ai/dsh-metrics` — 需要 `tasks` · `workbenchHost` · `deliverables` · `workbenchJournal`（[`packages/task-flow/metrics/src/index.ts`](../packages/task-flow/metrics/src/index.ts)）
 - `@deepseek-ai/dsh-recipe`（[`packages/task-flow/recipe/src/index.ts`](../packages/task-flow/recipe/src/index.ts)）
 - `@deepseek-ai/dsh-recipe-engine-core` — 需要 `tasks` · `recipes` · `agents` · `goals` · `storageDomain` · `workbenchJournal`（[`packages/task-flow/recipe-engine-core/src/index.ts`](../packages/task-flow/recipe-engine-core/src/index.ts)）
 - `@deepseek-ai/dsh-recipe-multiphase` — 需要 `recipeEngine`（[`packages/task-flow/recipe-multiphase/src/index.ts`](../packages/task-flow/recipe-multiphase/src/index.ts)）

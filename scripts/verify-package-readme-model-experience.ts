@@ -67,6 +67,8 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/schema-form': { kind: 'none', reason: 'Browser-side form-rendering library; registers nothing model-facing.' },
   'packages/client/connection': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/api/remotes': { kind: 'none', reason: 'The Remote BFF selects business methods and identity policy; selected services own any model-visible effect.' },
+  'packages/task-flow/digest': { kind: 'none', reason: 'Journal-derived host read projection for the workbench UI; registers nothing model-facing.' },
+  'packages/task-flow/metrics': { kind: 'none', reason: 'Journal/entity-derived host read aggregation for the workbench UI; registers nothing model-facing.' },
   'packages/client/runtime': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/ui-layout': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/ui-sidebar': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },

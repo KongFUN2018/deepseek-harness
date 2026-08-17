@@ -13,9 +13,18 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 // key face into this compilation program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { TaskMutationContext, TaskRecord } from '@deepseek-ai/dsh-task/types'
+import type { WorkbenchMetrics } from '@deepseek-ai/dsh-metrics/types'
 
 /** Lifecycle of the board's task-list load. */
 export type TaskBoardStatus = 'loading' | 'ready' | 'failed'
+
+/** Position of a task's current run inside its phase chain, 1-based. */
+export interface PhaseProgress {
+  /** 1-based index of the first unsettled phase; all-settled runs report the total. */
+  readonly current: number
+  /** Phase count of the run. */
+  readonly total: number
+}
 
 /** Snapshot state the board component renders. */
 export interface TaskBoardState {
@@ -23,10 +32,33 @@ export interface TaskBoardState {
   readonly status: TaskBoardStatus
   /** Known task projections, freshest first; folds keep it revision-coherent. */
   readonly tasks: readonly TaskRecord[]
+  /** Whole-workbench KPI counts for the KPI row; absent until the first load. */
+  readonly metrics: WorkbenchMetrics | undefined
+  /** Per-task phase progress keyed by task id; refreshed with the list. */
+  readonly phaseProgress: ReadonlyMap<string, PhaseProgress>
   /** Failure code of the last failed load or command, shown until the next success. */
   readonly error?: string | undefined
   /** Epoch ms of the last successful load or fold. */
   readonly updatedAt: number
+}
+
+/** Phase states that settle a run row; everything before them counts as current. */
+const PHASE_SETTLED = new Set(['passed', 'failed', 'stale', 'superseded', 'cancelled'])
+
+/**
+ * Derive one run's phase progress: the first unsettled phase is current.
+ * @param phaseRuns - the run's phase runs, in recording order.
+ * @returns the 1-based current index and the total.
+ */
+function phaseProgressOf(phaseRuns: readonly PhaseRunView[]): PhaseProgress {
+  const total = phaseRuns.length
+  const index = phaseRuns.findIndex(run => !PHASE_SETTLED.has(run.state))
+  return { current: index === -1 ? total : index + 1, total }
+}
+
+/** Minimal phase-run read the progress fold needs. */
+interface PhaseRunView {
+  readonly state: string
 }
 
 /** Monotonic seed for idempotency keys; collisions within a page are impossible. */
@@ -101,7 +133,7 @@ export class TaskBoardController {
    */
   constructor(ctx: ClientContext) {
     this.ctx = ctx
-    this.store = createSnapshotStore<TaskBoardState>({ status: 'loading', tasks: [], updatedAt: 0 })
+    this.store = createSnapshotStore<TaskBoardState>({ status: 'loading', tasks: [], metrics: undefined, phaseProgress: new Map(), updatedAt: 0 })
     ctx.effect(() => ctx.remote.$on('task/updated', (task) => { this.fold(task) }), 'task-board: task/updated fold')
     // A reconnect may have missed forwarded deliveries; the projection is
     // authoritative, so resync from the Remote instead of trusting the fold.
@@ -122,6 +154,23 @@ export class TaskBoardController {
     const next = index >= 0 ? tasks.with(index, task) : [...tasks, task]
     next.sort(byCreation)
     this.store.set({ ...this.store.getSnapshot(), tasks: next, updatedAt: Date.now() })
+    void this.refreshProgress(task)
+  }
+
+  /**
+   * Re-read one task's phase progress after a fold; a dropped read keeps the
+   * last known progress (the next full refresh recomputes it).
+   * @param task - the folded task projection.
+   */
+  private async refreshProgress(task: TaskRecord): Promise<void> {
+    if (task.currentRunId === undefined) return
+    const runs = await this.ctx.remote.tasks.listPhaseRuns(String(task.currentRunId))
+    if (!runs.ok) return
+    const snapshot = this.store.getSnapshot()
+    if (!snapshot.tasks.some(row => row.taskId === task.taskId)) return
+    const phaseProgress = new Map(snapshot.phaseProgress)
+    phaseProgress.set(task.taskId, phaseProgressOf(runs.value))
+    this.store.set({ ...snapshot, phaseProgress })
   }
 
   /**
@@ -129,17 +178,29 @@ export class TaskBoardController {
    * @returns when the load settles; failures land in the state's error.
    */
   async refresh(): Promise<void> {
-    const result = await this.ctx.remote.tasks.listTasks()
+    const [result, metricsResult] = await Promise.all([
+      this.ctx.remote.tasks.listTasks(),
+      this.ctx.remote.metrics.metrics(),
+    ])
     if (!result.ok) {
       this.store.set({ ...this.store.getSnapshot(), status: 'failed', error: result.error.code })
       return
     }
     const tasks = [...result.value].sort(byCreation)
+    const metrics = metricsResult.ok ? metricsResult.value : undefined
+    // Phase progress rides the same refresh; a per-task read failure keeps a
+    // zero progress slot rather than failing the whole board.
+    const entries = await Promise.all(tasks.map(async (task) => {
+      if (task.currentRunId === undefined) return [task.taskId, { current: 0, total: 0 }] as const
+      const runs = await this.ctx.remote.tasks.listPhaseRuns(String(task.currentRunId))
+      return [task.taskId, runs.ok ? phaseProgressOf(runs.value) : { current: 0, total: 0 }] as const
+    }))
+    const phaseProgress = new Map(entries)
     // A resync keeps any recorded command failure: the line reads as history
     // ("failed with X, since resynced"), and only a later successful command
     // or load-failure code replaces it.
     const { error } = this.store.getSnapshot()
-    this.store.set({ status: 'ready', tasks, error, updatedAt: Date.now() })
+    this.store.set({ status: 'ready', tasks, metrics, phaseProgress, error, updatedAt: Date.now() })
   }
 
   /**

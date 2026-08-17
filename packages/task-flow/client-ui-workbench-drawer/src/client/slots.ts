@@ -28,10 +28,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Owner share of the task-list seat: navigation into the detail tab. */
+/** Owner share of the task-list seat: navigation into the drawer's other tabs. */
 export interface DrawerTasksOwnerProps {
   /** Open one task's detail view: switches the drawer to the detail tab. */
   openDetail: (taskId: string) => void
+  /** Switch the drawer to the attention-inbox tab (KPI GATE/ASK drill-down). */
+  openInbox: () => void
 }
 
 /** Owner share of the detail seat: the task whose projection to show. */

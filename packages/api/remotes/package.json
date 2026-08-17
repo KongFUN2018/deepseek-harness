@@ -101,6 +101,8 @@
     "@deepseek-ai/dsh-recipe": "workspace:^",
     "@deepseek-ai/dsh-task": "workspace:^",
     "@deepseek-ai/dsh-deliverable-local": "workspace:^",
+    "@deepseek-ai/dsh-digest": "workspace:^",
+    "@deepseek-ai/dsh-metrics": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^"
   }
 }

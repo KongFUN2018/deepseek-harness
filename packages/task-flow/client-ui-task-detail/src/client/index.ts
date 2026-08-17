@@ -26,7 +26,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Required services for the drawer seat, the tasks Remote, and copy. */
-export const inject = ['slots', 'remote', 'remote.tasks', 'locale']
+export const inject = ['slots', 'remote', 'remote.tasks', 'remote.digest', 'locale']
 
 /**
  * Client plugin body: the dictionaries, the controller, and the drawer seat.

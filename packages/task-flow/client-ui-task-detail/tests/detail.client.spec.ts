@@ -67,6 +67,12 @@ async function bench(script: {
   const phaseLoads = vi.fn()
   const gateLoads = vi.fn()
   ctx.reflect.provide('remote', {
+    digest: {
+      digest: async () => ({ ok: true as const, value: {
+        taskId: 't-1' as never, state: 'running', revision: 1, runs: [], timeline: [],
+        phaseSummaries: [], decisionHistory: [], deliverableStates: [],
+      } }),
+    },
     tasks: {
       getTask: async (taskId: string) => { gets(taskId); return taskResult } ,
       listPhaseRuns: async (runId: string) => { phaseLoads(runId); return phasesResult } ,

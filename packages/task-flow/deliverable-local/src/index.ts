@@ -167,6 +167,16 @@ export class DeliverableService extends TypertRemoteService {
   }
 
   /**
+   * List every deliverable version in registration order. The metrics
+   * service filters current/valid products from this; no aggregation here.
+   * @returns all stored versions.
+   */
+  @Remote('listVersions')
+  listVersions(): DeliverableVersion[] {
+    return [...this.requireVersions().entries()].map(([, version]) => version)
+  }
+
+  /**
    * Invalidate everything downstream of the named roots: each root and its
    * transitive consumers over `dependsOn` edges transition to `stale`;
    * already-stale subgraphs are skipped, and chain lineage alone is not an

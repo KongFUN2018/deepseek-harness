@@ -3,6 +3,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import commandsRemote from '@deepseek-ai/dsh-commands/remote'
 import deliverablesRemote from '@deepseek-ai/dsh-deliverable-local/remote'
+import digestRemote from '@deepseek-ai/dsh-digest/remote'
+import metricsRemote from '@deepseek-ai/dsh-metrics/remote'
 import goalsRemote from '@deepseek-ai/dsh-goal/remote'
 import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
 import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
@@ -17,6 +19,8 @@ export type { TypertClientRemote as ClientRemote } from '@deepseek-ai/dsh-typert
 export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory/types'
 export type {} from '@deepseek-ai/dsh-commands/remote'
 export type {} from '@deepseek-ai/dsh-deliverable-local/remote'
+export type {} from '@deepseek-ai/dsh-digest/remote'
+export type {} from '@deepseek-ai/dsh-metrics/remote'
 export type {} from '@deepseek-ai/dsh-goal/remote'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
@@ -33,6 +37,8 @@ export type { ApiRemoteForwardedEvent } from '../types.ts'
 export type {} from '@deepseek-ai/dsh-commands/types'
 export type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
 export type {} from '@deepseek-ai/dsh-deliverable-local/types'
+export type {} from '@deepseek-ai/dsh-digest/types'
+export type {} from '@deepseek-ai/dsh-metrics/types'
 export type {} from '@deepseek-ai/dsh-credentials/types'
 export type {} from '@deepseek-ai/dsh-llm/types'
 export type {} from '@deepseek-ai/dsh-agent-presets/types'
@@ -124,6 +130,8 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
       recipeRemote,
       tasksRemote,
       deliverablesRemote,
+      digestRemote,
+      metricsRemote,
       workbenchRemote,
       workbenchHostStreamRemote,
     ]) {

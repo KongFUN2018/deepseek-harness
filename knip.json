@@ -774,6 +774,24 @@
         "zod"
       ]
     },
+    "packages/task-flow/digest": {
+      "entry": [
+        "tests/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
+      ]
+    },
+    "packages/task-flow/metrics": {
+      "entry": [
+        "tests/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
+      ]
+    },
     "packages/task-flow/rewind": {
       "entry": [
         "tests/**/*.spec.ts"
