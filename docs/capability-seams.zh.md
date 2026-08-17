@@ -129,6 +129,26 @@ flowchart LR
   pkg_recipes["recipes"]
   pkg_agents["agents"]
   pkg_goals["goals"]
+  pkg_attention["attention"]
+  svc_attention["ctx.attention<br/>Task-flow business-decision inbox"]
+  pkg_gate["gate"]
+  svc_gate["ctx.gate<br/>Task-flow submission gate service"]
+  pkg_edit_lock["edit-lock"]
+  svc_editLock["ctx.editLock<br/>Task-flow deliverable edit lock"]
+  pkg_impact_propagation["impact-propagation"]
+  svc_impactPropagation["ctx.impactPropagation<br/>Task-flow impact closure application"]
+  pkg_clarification["clarification"]
+  svc_clarifications["ctx.clarifications<br/>Task-flow clarification requests"]
+  pkg_recipe_multiphase["recipe-multiphase"]
+  svc_recipeMultiphase["ctx.recipeMultiphase<br/>Task-flow multiphase recipe executor"]
+  pkg_workbench_host_stream["workbench-host-stream"]
+  svc_workbenchHostStream["ctx.workbenchHostStream<br/>Task-flow journal change stream"]
+  pkg_rewind["rewind"]
+  svc_rewind["ctx.rewind<br/>Task-flow rewind branch replacement"]
+  pkg_budget["budget"]
+  svc_budget["ctx.budget<br/>Task-flow budget ledger"]
+  pkg_review_policy["review-policy"]
+  svc_reviewPolicy["ctx.reviewPolicy<br/>Task-flow review policy tiers and fuse"]
   pkg_e2b["e2b"]
   svc_e2b["ctx.e2b<br/>E2B sandbox lifecycle owner"]
   pkg_fs_e2b["fs-e2b"]
@@ -223,8 +243,11 @@ flowchart LR
   pkg_approval --> svc_approval
   pkg_attachment --> svc_attachments
   pkg_attachment_local --> svc_attachments
+  pkg_attention --> svc_attention
   pkg_bash_local --> svc_shell
   pkg_bash_sandbox --> svc_shell
+  pkg_budget --> svc_budget
+  pkg_clarification --> svc_clarifications
   pkg_code_runtime --> svc_codeRuntime
   pkg_code_runtime_worker --> svc_codeRuntime
   pkg_commands --> svc_commands
@@ -240,11 +263,14 @@ flowchart LR
   pkg_directory_picker_browse --> svc_directoryPicker
   pkg_directory_picker_native --> svc_directoryPicker
   pkg_e2b --> svc_e2b
+  pkg_edit_lock --> svc_editLock
   pkg_fs --> svc_fs
   pkg_fs_e2b --> svc_fs
   pkg_fs_local --> svc_fs
   pkg_fs_sandbox --> svc_fs
+  pkg_gate --> svc_gate
   pkg_goal --> svc_goals
+  pkg_impact_propagation --> svc_impactPropagation
   pkg_invariants --> svc_invariants
   pkg_jobs --> svc_jobs
   pkg_jobs_local --> svc_jobs
@@ -261,6 +287,9 @@ flowchart LR
   pkg_pwsh_local --> svc_shell
   pkg_recipe --> svc_recipes
   pkg_recipe_engine_core --> svc_recipeEngine
+  pkg_recipe_multiphase --> svc_recipeMultiphase
+  pkg_review_policy --> svc_reviewPolicy
+  pkg_rewind --> svc_rewind
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
   pkg_sandbox_policy --> svc_sandboxPolicy
@@ -317,6 +346,7 @@ flowchart LR
   pkg_web_search_perplexity --> svc_web
   pkg_webserver --> svc_webServer
   pkg_workbench_host --> svc_workbenchHost
+  pkg_workbench_host_stream --> svc_workbenchHostStream
   pkg_workbench_journal --> svc_workbenchJournal
   pkg_workflow --> svc_workflowEngine
   pkg_workflow_worker_thread --> svc_workflowEngine
@@ -332,6 +362,10 @@ flowchart LR
   svc_approval --> pkg_tools
   svc_attachments --> pkg_host_runtime
   svc_attachments --> pkg_llm_pi_ai
+  svc_attention --> pkg_api_remotes
+  svc_attention --> pkg_workbench_host
+  svc_budget --> pkg_workbench_host
+  svc_clarifications --> pkg_api_remotes
   svc_clientModules --> pkg_hmr
   svc_codeRuntime --> pkg_tools
   svc_compaction --> pkg_compaction_basic
@@ -345,6 +379,8 @@ flowchart LR
   svc_e2b --> pkg_fs_e2b
   svc_e2b --> pkg_subprocess_e2b
   svc_fs --> pkg_tool_fs
+  svc_gate --> pkg_api_remotes
+  svc_impactPropagation --> pkg_recipe_engine_core
   svc_invariants --> pkg_agent
   svc_invariants --> pkg_agent_loop
   svc_invariants --> pkg_scope
@@ -362,7 +398,11 @@ flowchart LR
   svc_recipeEngine --> pkg_storage_domain
   svc_recipeEngine --> pkg_tasks
   svc_recipeEngine --> pkg_workbench_journal
+  svc_recipeMultiphase --> pkg_recipe_engine_core
   svc_recipes --> pkg_api_remotes
+  svc_reviewPolicy --> pkg_gate
+  svc_reviewPolicy --> pkg_workbench_host
+  svc_rewind --> pkg_workbench_host
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -444,6 +484,7 @@ flowchart LR
   svc_webServer --> pkg_modules
   svc_workbenchHost --> pkg_api_remotes
   svc_workbenchHost --> pkg_apiproxy
+  svc_workbenchHostStream --> pkg_workbench_host
   svc_workbenchJournal --> pkg_storage_domain
   svc_workflowEngine --> pkg_tool_ralph
   svc_workflowEngine --> pkg_tool_workflow
@@ -492,6 +533,16 @@ flowchart LR
 | `ctx.deliverables` | `core` | [`deliverable-local`](../packages/task-flow/deliverable-local) | - | [`storage-domain`](../packages/storage/storage-domain) | - | 基于单个 storageDomain 单元拥有每产物不可变版本链；过时写拒绝、当前输入列表与下游失效服务于任务写链与客户端任务看板。 |
 | `ctx.tasks` | `core` | [`task-local`](../packages/task-flow/task-local) | - | [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal), [`deliverable-local`](../packages/task-flow/deliverable-local) | - | 在单个 storageDomain 单元上实现 TaskHandle 存储钩子；每次写入把 journal 事实作为提交点追加，submission 受理在任务写链内校验产物引用。 |
 | `ctx.recipeEngine` | `core` | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | `tasks`, `recipes`, `agents`, `goals`, [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal) | - | 调度钉定配方的阶段运行并经由贡献的 phase executor 驱动提交—门检—通过链；针对 workbench journal 协调暂停、取消与重启恢复。 |
+| `ctx.attention` | `core` | [`attention`](../packages/task-flow/attention) | - | [`workbench-host`](../packages/task-flow/workbench-host), [`api-remotes`](../packages/api/remotes) | - | 在存储域上持久化 B 类确认与 C 类决策为开放 item；解决后落地冻结的任务命令，浏览器工作台渲染收件箱流。 |
+| `ctx.gate` | `core` | [`gate`](../packages/task-flow/gate) | - | [`api-remotes`](../packages/api/remotes) | - | 按冻结的验收检查运行一次提交；当审查策略推迟批量确认时，把 gate-running 的 phase run 停驻在开放 item 之后，并把每条判定记录到变更流。 |
+| `ctx.editLock` | `core` | [`edit-lock`](../packages/task-flow/edit-lock) | - | - | - | 在存储域单元上对交付物版本持有先写先得的租约；获取租约冻结消费方 phase 调度，释放或过期清除租约。 |
+| `ctx.impactPropagation` | `core` | [`impact-propagation`](../packages/task-flow/impact-propagation) | - | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | 把持久化的交付物 ImpactSnapshot 应用到任务面：受影响的 phase run 进入 stale，其提交产生的门判定被标注 stale，不再支撑通过。 |
+| `ctx.clarifications` | `core` | [`clarification`](../packages/task-flow/clarification) | - | [`api-remotes`](../packages/api/remotes) | - | 在存储域单元上持久化模型发起的澄清问题与答案；开放问题在回答前阻塞任务写链。 |
+| `ctx.recipeMultiphase` | `core` | [`recipe-multiphase`](../packages/task-flow/recipe-multiphase) | - | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | 为多阶段配方贡献 phase executor；引擎按冻结的配方图驱动每个 phase run 走过提交与门检。 |
+| `ctx.workbenchHostStream` | `core` | [`workbench-host-stream`](../packages/task-flow/workbench-host-stream) | - | [`workbench-host`](../packages/task-flow/workbench-host) | - | 把 journal 追加投影为浏览器工作台消费的推送事件，使收件箱与任务板无需轮询即保持实时。 |
+| `ctx.rewind` | `core` | [`rewind`](../packages/task-flow/rewind) | - | [`workbench-host`](../packages/task-flow/workbench-host) | - | 计算交付物影响闭包到阻塞决策 item 上，确认后创建 successor 任务运行并令被退役分支的 phase run superseded。 |
+| `ctx.budget` | `core` | [`budget`](../packages/task-flow/budget) | - | [`workbench-host`](../packages/task-flow/workbench-host) | - | 每任务一条显式台账，覆盖 token、时长与重跑维度；记账时评估阈值（80% 预警、超限停驻）并落地已解决决策。 |
+| `ctx.reviewPolicy` | `core` | [`review-policy`](../packages/task-flow/review-policy) | - | [`gate`](../packages/task-flow/gate), [`workbench-host`](../packages/task-flow/workbench-host) | - | 拥有信任档（strict 默认，trusted 推迟 B 类确认）、开放 item 完成守卫与修复熔断——连续失败判定停驻运行。 |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | 拥有一个共享的 E2B SDK 句柄、远程工作目录和最终沙箱处置，使两个基础 E2B 提供方处于同一个 Linux 运行时中。 |
 | `ctx.subprocess` | `seam` | [`subprocess`](../packages/subprocess/subprocess) | [`subprocess-local`](../packages/subprocess/subprocess-local), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`terminal-bash`](../packages/terminal/terminal-bash), [`lsp-stdio`](../packages/lsp/lsp-stdio), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | - | Bash 执行器、PTY shell 后端、LSP Host，以及进程外 ACP、Codex 和 Claude Code subagent 后端都通过 ctx.subprocess 执行 spawn；该服务负责进程坐标、进程树／会话生命周期、stdio 处置、终端机制和 kill 升级。 |
 | `ctx.shell` | `seam` | [`shell`](../packages/shell/shell) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`pwsh-local`](../packages/shell/pwsh-local) | [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) | - | 面向模型的 shell 工具和钩子桥接消费此 seam；沙箱、远程或 PowerShell 执行器可以替换 bash-local，而无需改动这些消费方。 |

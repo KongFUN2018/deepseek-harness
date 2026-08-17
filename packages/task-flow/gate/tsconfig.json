@@ -21,6 +21,9 @@
       "path": "../attention"
     },
     {
+      "path": "../review-policy"
+    },
+    {
       "path": "../../runtime-diagnostics/invariants"
     }
   ]

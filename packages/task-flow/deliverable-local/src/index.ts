@@ -63,6 +63,13 @@ function saveFactKey(idempotencyKey: string): string {
   return `deliverable/save:${idempotencyKey}`
 }
 
+/** Field-wise equality of one replayed dependency edge against its stored twin. */
+function sameDependency(ref: DeliverableVersionRef, declared: DeliverableVersionRef | undefined): boolean {
+  return declared !== undefined
+    && ref.deliverableId === declared.deliverableId
+    && ref.versionId === declared.versionId
+}
+
 /**
  * Deliverable-local service: the M2 deliverable domain behind the M1 service
  * key and Remote surface, with idempotent saves, write-chain-owned dependency
@@ -350,10 +357,7 @@ export class DeliverableService extends TypertRemoteService {
     }
     if (version.dependsOn !== undefined) {
       const same = version.dependsOn.length === dependsOn.length
-        && version.dependsOn.every((ref, index) => (
-          ref.deliverableId === dependsOn[index]?.deliverableId
-          && ref.versionId === dependsOn[index]?.versionId
-        ))
+        && version.dependsOn.every((ref, index) => sameDependency(ref, dependsOn[index]))
       if (same) return
       throw new DeliverableError('idempotency-conflict', `version ${JSON.stringify(versionId)} already declares different dependencies`)
     }

@@ -96,16 +96,28 @@ flowchart LR
   cfg --> plugin_dsh_base_command_feedback
   plugin_dsh_base_goal["goal<br/>@deepseek-ai/dsh-goal"]
   cfg --> plugin_dsh_base_goal
+  plugin_dsh_base_attention["attention<br/>@deepseek-ai/dsh-attention"]
+  cfg --> plugin_dsh_base_attention
   plugin_dsh_base_workbench_host["workbench-host<br/>@deepseek-ai/dsh-workbench-host"]
   cfg --> plugin_dsh_base_workbench_host
+  plugin_dsh_base_workbench_host_stream["workbench-host-stream<br/>@deepseek-ai/dsh-workbench-host-stream"]
+  cfg --> plugin_dsh_base_workbench_host_stream
   plugin_dsh_base_recipe["recipe<br/>@deepseek-ai/dsh-recipe"]
   cfg --> plugin_dsh_base_recipe
-  plugin_dsh_base_task["task<br/>@deepseek-ai/dsh-task"]
-  cfg --> plugin_dsh_base_task
   plugin_dsh_base_workbench_journal["workbench-journal<br/>@deepseek-ai/dsh-workbench-journal"]
   cfg --> plugin_dsh_base_workbench_journal
   plugin_dsh_base_deliverable_local["deliverable-local<br/>@deepseek-ai/dsh-deliverable-local"]
   cfg --> plugin_dsh_base_deliverable_local
+  plugin_dsh_base_impact_propagation["impact-propagation<br/>@deepseek-ai/dsh-impact-propagation"]
+  cfg --> plugin_dsh_base_impact_propagation
+  plugin_dsh_base_edit_lock["edit-lock<br/>@deepseek-ai/dsh-edit-lock"]
+  cfg --> plugin_dsh_base_edit_lock
+  plugin_dsh_base_rewind["rewind<br/>@deepseek-ai/dsh-rewind"]
+  cfg --> plugin_dsh_base_rewind
+  plugin_dsh_base_budget["budget<br/>@deepseek-ai/dsh-budget"]
+  cfg --> plugin_dsh_base_budget
+  plugin_dsh_base_review_policy["review-policy<br/>@deepseek-ai/dsh-review-policy"]
+  cfg --> plugin_dsh_base_review_policy
   plugin_dsh_base_task_local["task-local<br/>@deepseek-ai/dsh-task-local"]
   cfg --> plugin_dsh_base_task_local
   plugin_dsh_base_recipe_engine_core["recipe-engine-core<br/>@deepseek-ai/dsh-recipe-engine-core"]
@@ -226,11 +238,17 @@ flowchart LR
 | `commands` | `@deepseek-ai/dsh-commands` |
 | `command-feedback` | `@deepseek-ai/dsh-command-feedback` |
 | `goal` | `@deepseek-ai/dsh-goal` |
+| `attention` | `@deepseek-ai/dsh-attention` |
 | `workbench-host` | `@deepseek-ai/dsh-workbench-host` |
+| `workbench-host-stream` | `@deepseek-ai/dsh-workbench-host-stream` |
 | `recipe` | `@deepseek-ai/dsh-recipe` |
-| `task` | `@deepseek-ai/dsh-task` |
 | `workbench-journal` | `@deepseek-ai/dsh-workbench-journal` |
 | `deliverable-local` | `@deepseek-ai/dsh-deliverable-local` |
+| `impact-propagation` | `@deepseek-ai/dsh-impact-propagation` |
+| `edit-lock` | `@deepseek-ai/dsh-edit-lock` |
+| `rewind` | `@deepseek-ai/dsh-rewind` |
+| `budget` | `@deepseek-ai/dsh-budget` |
+| `review-policy` | `@deepseek-ai/dsh-review-policy` |
 | `task-local` | `@deepseek-ai/dsh-task-local` |
 | `recipe-engine-core` | `@deepseek-ai/dsh-recipe-engine-core` |
 | `goal-round-driver` | `@deepseek-ai/dsh-goal-round-driver` |

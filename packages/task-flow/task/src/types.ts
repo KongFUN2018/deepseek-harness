@@ -215,5 +215,13 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      */
     'phase-run/updated'(phaseRun: PhaseRunRecord): void
+    /**
+     * One stored gate-check verdict; the breaker counter (M5 review-policy)
+     * observes this instead of polling. Droppable — the journal is the
+     * authoritative record.
+     * @param result - the stored verdict.
+     * @mode emit
+     */
+    'gate-check/recorded'(result: GateCheckResult): void
   }
 }

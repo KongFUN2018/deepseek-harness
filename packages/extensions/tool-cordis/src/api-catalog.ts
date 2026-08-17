@@ -422,6 +422,42 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'budget',
+    summary: 'Budget service: the M5 explicit task ledger with threshold decisions.',
+    description: 'Budget service: the M5 explicit task ledger with threshold decisions.',
+    methods: [
+      {
+        signature: '@Remote(\'provisionBudget\') async provisionBudget(taskId: string, limits: BudgetLimits, actor: string, idempotencyKey: string): Promise<BudgetRecord>',
+        description: 'Provision one task\'s ledger. One record per task; explicit limits only — an absent dimension is unlimited, not defaulted.',
+        parameters: [{ name: 'taskId', description: 'the task the ledger tracks.' }, { name: 'limits', description: 'explicit limits; at least one dimension.' }, { name: 'actor', description: 'provisioning actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the stored ledger record.',
+      },
+      {
+        signature: '@Remote(\'appendBudget\') async appendBudget( taskId: string, deltas: BudgetLimits, expectedRevision: number, actor: string, idempotencyKey: string, ): Promise<BudgetRecord>',
+        description: 'Append budget: raise explicit limits and re-arm the warning latch.',
+        parameters: [{ name: 'taskId', description: 'the task whose ledger grows.' }, { name: 'deltas', description: 'the limit increases per dimension; at least one positive.' }, { name: 'expectedRevision', description: 'the ledger revision the caller read.' }, { name: 'actor', description: 'appending actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the post-append ledger record.',
+      },
+      {
+        signature: '@Remote(\'recordUsage\') async recordUsage(taskId: string, usage: BudgetUsage, actor: string, idempotencyKey: string): Promise<BudgetRecord>',
+        description: 'Record one explicit usage intake and evaluate thresholds per dimension.',
+        parameters: [{ name: 'taskId', description: 'the task whose ledger accumulates.' }, { name: 'usage', description: 'the spend delta; absent dimensions spend nothing.' }, { name: 'actor', description: 'recording actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the post-intake ledger record.',
+      },
+      {
+        signature: '@Remote(\'getBudget\') getBudget(taskId: string): BudgetRecord | undefined',
+        description: 'Read one task\'s ledger.',
+        parameters: [{ name: 'taskId', description: 'the task the ledger tracks.' }],
+        returns: 'the ledger record, or undefined when never provisioned.',
+      },
+      {
+        signature: '@Remote(\'applyBudgetDecision\') async applyBudgetDecision( itemId: string, deltas: BudgetLimits, taskRevision: number, actor: string, idempotencyKey: string, ): Promise<void>',
+        description: 'Land one resolved budget-exceeded decision on the task plane: the append-budget outcome grows the ledger and resumes the task; pause and cancel route to the task commands. The item must already be resolved — no silent landing of an open decision.',
+        parameters: [{ name: 'itemId', description: 'the resolved budget-exceeded item.' }, { name: 'deltas', description: 'the limit increases (append-budget only; at least one).' }, { name: 'taskRevision', description: 'the task revision the caller read.' }, { name: 'actor', description: 'landing actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+      },
+    ],
+  },
+  {
     key: 'clarifications',
     summary: 'Clarification service: the M3 persistent-clarification domain, with idempotent request creation, idempotent per-question partial answers, and recovered answer injection into the phase session.',
     description: 'Clarification service: the M3 persistent-clarification domain, with idempotent request creation, idempotent per-question partial answers, and recovered answer injection into the phase session.',
@@ -1220,6 +1256,55 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'reviewPolicy',
+    summary: 'Review-policy service: trust tiers, completion guards, and repair fuses.',
+    description: 'Review-policy service: trust tiers, completion guards, and repair fuses.',
+    methods: [
+      {
+        signature: '@Remote(\'setTier\') async setTier(taskId: string, tier: TrustTier, actor: string, idempotencyKey: string): Promise<ReviewPolicyRecord>',
+        description: 'Set one task\'s trust tier; unprovisioned tasks read as strict.',
+        parameters: [{ name: 'taskId', description: 'the task whose tier changes.' }, { name: 'tier', description: 'the new tier.' }, { name: 'actor', description: 'setting actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the stored tier record.',
+      },
+      {
+        signature: '@Remote(\'getTier\') getTier(taskId: string): TrustTier',
+        description: 'Read one task\'s tier.',
+        parameters: [{ name: 'taskId', description: 'the task to read.' }],
+        returns: 'the stored tier, or strict when unprovisioned.',
+      },
+      {
+        signature: '@Remote(\'defersBatchConfirm\') defersBatchConfirm(taskId: string): boolean',
+        description: 'The gate service\'s read: whether B-class batch confirmation may run ahead (trusted tier only). C-class checks always block.',
+        parameters: [{ name: 'taskId', description: 'the task being gated.' }],
+        returns: 'true only when the task runs the trusted tier.',
+      },
+      {
+        signature: '@Remote(\'applyBreakerDecision\') async applyBreakerDecision(itemId: string, phaseRunRevision: number, actor: string, idempotencyKey: string): Promise<void>',
+        description: 'Land one resolved breaker decision on the task plane: continue-repair resets the counter and resumes the parked run; pause and cancel route to the task commands; patch only journals the choice.',
+        parameters: [{ name: 'itemId', description: 'the resolved breaker-tripped item.' }, { name: 'phaseRunRevision', description: 'the parked phase run\'s revision the caller read.' }, { name: 'actor', description: 'landing actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+      },
+    ],
+  },
+  {
+    key: 'rewind',
+    summary: 'Rewind service: preview-through-decision branch replacement.',
+    description: 'Rewind service: preview-through-decision branch replacement.',
+    methods: [
+      {
+        signature: '@Remote(\'requestRewind\') async requestRewind( taskId: string, rootVersionIds: string[], actor: string, idempotencyKey: string, ): Promise<RewindPreview & { itemId: string }>',
+        description: 'Request one rewind: compute the impact closure, persist the preview, and open the decision item. No task-plane write happens before the decision.',
+        parameters: [{ name: 'taskId', description: 'the task whose branch the rewind would replace.' }, { name: 'rootVersionIds', description: 'the deliverable versions the upstream edit staled.' }, { name: 'actor', description: 'requesting actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the open rewind decision item.',
+      },
+      {
+        signature: '@Remote(\'applyRewind\') async applyRewind(itemId: string, taskRevision: number, actor: string, idempotencyKey: string): Promise<RewindApplication>',
+        description: 'Apply one resolved rewind decision: create the successor run, supersede the retired branch\'s phase runs, and journal the branch fact.',
+        parameters: [{ name: 'itemId', description: 'the resolved rewind decision item.' }, { name: 'taskRevision', description: 'the task revision the caller read.' }, { name: 'actor', description: 'applying actor.' }, { name: 'idempotencyKey', description: 'caller-owned replay key.' }],
+        returns: 'the new run and the retired phase runs.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -1998,6 +2083,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Task service: durable task/run/phase projections and guarded commands.',
     methods: [
       {
+        signature: 'registerCompletionGuard(guard: (task: TaskRecord) => Promise<void>): () => void',
+        description: 'Register one completion guard: `completeTask` runs every registered guard on the serial write chain after the state check passes; a throwing guard rejects the command before any durable write. Contributors own their disposal — the returned handle removes the guard.',
+        parameters: [{ name: 'guard', description: 'async veto over one task about to complete.' }],
+        returns: 'the disposer that unregisters the guard.',
+      },
+      {
         signature: '@Remote(\'createTask\') async createTask(recipeId: string, workspaceId: string, actor: string, idempotencyKey: string): Promise<TaskRecord>',
         description: 'Create a task pinned to the latest registered revision of one recipe.',
         parameters: [{ name: 'recipeId', description: 'raw recipe identifier.' }, { name: 'workspaceId', description: 'raw workspace identifier.' }, { name: 'actor', description: 'creating actor, recorded with the creation.' }, { name: 'idempotencyKey', description: 'deduplication key; a replay with the same key returns the original task.' }],
@@ -2047,14 +2138,26 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote(\'completeTask\') async completeTask(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
-        description: 'Complete a task; the completion guard requires every phase run of the current run to have passed.',
+        description: 'Complete a task; the completion guard requires every phase run of the current run to have passed (or retired into stale/superseded), then every registered M5 completion guard must approve — unsigned B items, suspended rewind decisions, and open blocking decisions veto here.',
         parameters: [{ name: 'taskId', description: 'the task to complete.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
         returns: 'the post-commit task projection.',
       },
       {
-        signature: '@Remote(\'createTaskRun\') async createTaskRun(taskId: string, mutation: TaskMutationContext): Promise<TaskRunRecord>',
+        signature: '@Remote(\'markTaskAwaitingDecision\') async markTaskAwaitingDecision(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Park one running task in `awaiting-decision`: the over-budget decision (M5 budget) holds scheduling without touching any phase run.',
+        parameters: [{ name: 'taskId', description: 'the task to park.' }, { name: 'mutation', description: 'the task\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit task projection.',
+      },
+      {
+        signature: '@Remote(\'resumeTaskFromDecision\') async resumeTaskFromDecision(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
+        description: 'Return one parked task from `awaiting-decision` to `running`; the resolved over-budget decision (append-budget outcome) resumes here.',
+        parameters: [{ name: 'taskId', description: 'the task to resume.' }, { name: 'mutation', description: 'the task\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit task projection.',
+      },
+      {
+        signature: '@Remote(\'createTaskRun\') async createTaskRun(taskId: string, mutation: TaskMutationContext, parentRunId?: string): Promise<TaskRunRecord>',
         description: 'Open a new run on one task and make it the current run.',
-        parameters: [{ name: 'taskId', description: 'the owning task.' }, { name: 'mutation', description: 'the task\'s expected revision plus actor metadata.' }],
+        parameters: [{ name: 'taskId', description: 'the owning task.' }, { name: 'mutation', description: 'the task\'s expected revision plus actor metadata.' }, { name: 'parentRunId', description: 'the superseded branch this run replaces (rewind); omitted on the initial run.' }],
         returns: 'the new run.',
       },
       {
@@ -2109,6 +2212,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: '@Remote(\'markPhaseStale\') async markPhaseStale(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
         description: 'Mark one phase run stale: the M2 impact command. A stale run is terminal; the engine re-opens the phase as a new run. Runs in `running` or `submitting` reject — an in-flight atomic action settles per the M1 quiescence contract.',
         parameters: [{ name: 'phaseRunId', description: 'the phase run the impact closure covers.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
+        returns: 'the post-commit phase-run projection.',
+      },
+      {
+        signature: '@Remote(\'markPhaseSuperseded\') async markPhaseSuperseded(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>',
+        description: 'Retire one phase run into `superseded`: the M5 rewind command. A superseded run is terminal and never blocks completion; unlike `stale` (invalidated inputs), superseded means the whole branch lost to a newer run, so in-flight states retire too — the rewind decision already committed to abandoning the branch.',
+        parameters: [{ name: 'phaseRunId', description: 'the phase run the rewind retires.' }, { name: 'mutation', description: 'the phase run\'s expected revision plus actor metadata.' }],
         returns: 'the post-commit phase-run projection.',
       },
       {
@@ -2682,6 +2791,54 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
 /** Every harness event, sorted by name. */
 export const EVENT_API: readonly EventApiEntry[] = [
   {
+    name: '@deepseek-ai/cordis/dynamic-package',
+    mode: 'emit',
+    signature: '\'@deepseek-ai/cordis/dynamic-package\'(pkg: DynamicCordisPackage): void',
+    summary: 'One exact Plugin/Package activation is now live in the Host.',
+    description: 'One exact Plugin/Package activation is now live in the Host.',
+    parameters: [{ name: 'pkg', description: 'stable plugin, immutable package, run identity, and label.' }],
+  },
+  {
+    name: '@deepseek-ai/cordis/dynamic-retract',
+    mode: 'emit',
+    signature: '\'@deepseek-ai/cordis/dynamic-retract\'(retracted: DynamicCordisRetracted): void',
+    summary: 'One exact activation was withdrawn.',
+    description: 'One exact activation was withdrawn.',
+    parameters: [{ name: 'retracted', description: 'plugin, package, and run identity.' }],
+  },
+  {
+    name: '@deepseek-ai/cordis/inspect-query',
+    mode: 'emit',
+    signature: '\'@deepseek-ai/cordis/inspect-query\'(request: CordisInspectQueryRequest): void',
+    summary: 'Request a live read-only query from the Client inspect registry.',
+    description: 'Request a live read-only query from the Client inspect registry.',
+    parameters: [{ name: 'request', description: 'correlation, Session, provider, method, and JSON input.' }],
+  },
+  {
+    name: '@deepseek-ai/cordis/inspect-query-resolved',
+    mode: 'emit',
+    signature: '\'@deepseek-ai/cordis/inspect-query-resolved\'(resolved: CordisInspectQueryResolved): void',
+    summary: 'Notify every Client that an inspect query has settled or been cancelled.',
+    description: 'Notify every Client that an inspect query has settled or been cancelled.',
+    parameters: [{ name: 'resolved', description: 'exact query identity that is no longer answerable.' }],
+  },
+  {
+    name: '@deepseek-ai/cordis/request-run',
+    mode: 'emit',
+    signature: '\'@deepseek-ai/cordis/request-run\'(request: DynamicCordisRunRequest): void',
+    summary: 'A Client-bearing activation needs a browser page, and may require a user decision.',
+    description: 'A Client-bearing activation needs a browser page, and may require a user decision.',
+    parameters: [{ name: 'request', description: 'correlation identity, owner, target version, mode, and approval requirement.' }],
+  },
+  {
+    name: '@deepseek-ai/cordis/request-run-resolved',
+    mode: 'emit',
+    signature: '\'@deepseek-ai/cordis/request-run-resolved\'(resolved: DynamicCordisRequestResolved): void',
+    summary: 'A pending Client activation request left the answerable state.',
+    description: 'A pending Client activation request left the answerable state.',
+    parameters: [{ name: 'resolved', description: 'request identity and outcome.' }],
+  },
+  {
     name: 'agent-loop/config-start-failed',
     mode: 'emit',
     signature: '\'agent-loop/config-start-failed\'(payload: { sessionId: SessionId; error: unknown }): void',
@@ -2810,54 +2967,6 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
-    name: 'cordis/dynamic-package',
-    mode: 'emit',
-    signature: '\'cordis/dynamic-package\'(pkg: DynamicCordisPackage): void',
-    summary: 'One exact Plugin/Package activation is now live in the Host.',
-    description: 'One exact Plugin/Package activation is now live in the Host.',
-    parameters: [{ name: 'pkg', description: 'stable plugin, immutable package, run identity, and label.' }],
-  },
-  {
-    name: 'cordis/dynamic-retract',
-    mode: 'emit',
-    signature: '\'cordis/dynamic-retract\'(retracted: DynamicCordisRetracted): void',
-    summary: 'One exact activation was withdrawn.',
-    description: 'One exact activation was withdrawn.',
-    parameters: [{ name: 'retracted', description: 'plugin, package, and run identity.' }],
-  },
-  {
-    name: 'cordis/inspect-query',
-    mode: 'emit',
-    signature: '\'cordis/inspect-query\'(request: CordisInspectQueryRequest): void',
-    summary: 'Request a live read-only query from the Client inspect registry.',
-    description: 'Request a live read-only query from the Client inspect registry.',
-    parameters: [{ name: 'request', description: 'correlation, Session, provider, method, and JSON input.' }],
-  },
-  {
-    name: 'cordis/inspect-query-resolved',
-    mode: 'emit',
-    signature: '\'cordis/inspect-query-resolved\'(resolved: CordisInspectQueryResolved): void',
-    summary: 'Notify every Client that an inspect query has settled or been cancelled.',
-    description: 'Notify every Client that an inspect query has settled or been cancelled.',
-    parameters: [{ name: 'resolved', description: 'exact query identity that is no longer answerable.' }],
-  },
-  {
-    name: 'cordis/request-run',
-    mode: 'emit',
-    signature: '\'cordis/request-run\'(request: DynamicCordisRunRequest): void',
-    summary: 'A Client-bearing activation needs a browser page, and may require a user decision.',
-    description: 'A Client-bearing activation needs a browser page, and may require a user decision.',
-    parameters: [{ name: 'request', description: 'correlation identity, owner, target version, mode, and approval requirement.' }],
-  },
-  {
-    name: 'cordis/request-run-resolved',
-    mode: 'emit',
-    signature: '\'cordis/request-run-resolved\'(resolved: DynamicCordisRequestResolved): void',
-    summary: 'A pending Client activation request left the answerable state.',
-    description: 'A pending Client activation request left the answerable state.',
-    parameters: [{ name: 'resolved', description: 'request identity and outcome.' }],
-  },
-  {
     name: 'credentials/updated',
     mode: 'emit',
     signature: '\'credentials/updated\'(ref: CredentialRef): void',
@@ -2896,6 +3005,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Single-slot decision for the next FileSystem.writeText.',
     description: 'Single-slot decision for the next FileSystem.writeText. Calling `next()` yields the bare provider\'s unconditional write; the first listener that returns an intent owns the decision rather than composing with peers.',
     parameters: [{ name: 'target', description: 'the resolved target about to be written.' }, { name: 'actor', description: 'the opaque tool-execution context the decider keys off.' }],
+  },
+  {
+    name: 'gate-check/recorded',
+    mode: 'emit',
+    signature: '\'gate-check/recorded\'(result: GateCheckResult): void',
+    summary: 'One stored gate-check verdict; the breaker counter (M5 review-policy) observes this instead of polling.',
+    description: 'One stored gate-check verdict; the breaker counter (M5 review-policy) observes this instead of polling. Droppable — the journal is the authoritative record.',
+    parameters: [{ name: 'result', description: 'the stored verdict.' }],
   },
   {
     name: 'goal/changed',
@@ -3342,6 +3459,30 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type Branded<B extends string> = string & {\n    readonly [BRAND]: B;\n};',
   },
   {
+    name: 'BudgetDimension',
+    declaration: 'export type BudgetDimension = \'tokens\' | \'durationMs\' | \'reruns\';',
+  },
+  {
+    name: 'BudgetLimits',
+    declaration: 'export interface BudgetLimits {\n    readonly maxTokens?: number;\n    readonly maxDurationMs?: number;\n    readonly maxReruns?: number;\n}',
+  },
+  {
+    name: 'BudgetRecord',
+    declaration: 'export interface BudgetRecord {\n    readonly recordId: BudgetRecordId;\n    readonly taskId: TaskId;\n    readonly limits: BudgetLimits;\n    readonly spent: BudgetSpent;\n    readonly revision: number;\n    readonly warned: readonly BudgetDimension[];\n}',
+  },
+  {
+    name: 'BudgetRecordId',
+    declaration: 'export type BudgetRecordId = Branded<\'BudgetRecordId\'>;',
+  },
+  {
+    name: 'BudgetSpent',
+    declaration: 'export interface BudgetSpent {\n    readonly tokens: number;\n    readonly durationMs: number;\n    readonly reruns: number;\n}',
+  },
+  {
+    name: 'BudgetUsage',
+    declaration: 'export interface BudgetUsage {\n    readonly tokens?: number;\n    readonly durationMs?: number;\n    readonly reruns?: number;\n}',
+  },
+  {
     name: 'CancelOptions',
     declaration: 'export interface CancelOptions {\n    keepInbox?: boolean | undefined;\n}',
   },
@@ -3547,7 +3688,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CreateItemInput',
-    declaration: 'export interface CreateItemInput {\n    readonly itemId: AttentionItemId;\n    readonly taskId: TaskId;\n    readonly runId?: TaskRunId;\n    readonly phaseRunId?: PhaseRunId;\n    readonly submissionId?: SubmissionId;\n    readonly checkId?: string;\n    readonly kind: AttentionItemKind;\n    readonly decisionKind: string;\n    readonly options: readonly string[];\n}',
+    declaration: 'export interface CreateItemInput {\n    readonly itemId: AttentionItemId;\n    readonly taskId: TaskId;\n    readonly runId?: TaskRunId;\n    readonly phaseRunId?: PhaseRunId;\n    readonly submissionId?: SubmissionId;\n    readonly checkId?: string;\n    readonly kind: AttentionItemKind;\n    readonly decisionKind: string;\n    readonly impactSnapshot?: string;\n    readonly options: readonly string[];\n}',
   },
   {
     name: 'CreateSessionOptions',
@@ -4342,6 +4483,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ReasoningEffortId = Branded<\'ReasoningEffortId\'>;',
   },
   {
+    name: 'RecipeBreakerSpec',
+    declaration: 'export interface RecipeBreakerSpec {\n    readonly key: string;\n    readonly maxConsecutiveRepairs: number;\n}',
+  },
+  {
     name: 'RecipeCheckKind',
     declaration: 'export type RecipeCheckKind = \'A\' | \'B\' | \'C\';',
   },
@@ -4363,7 +4508,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'RecipePayload',
-    declaration: 'export interface RecipePayload {\n    readonly phases: readonly RecipePhaseSpec[];\n    readonly gateChecks: readonly RecipeGateCheckSpec[];\n    readonly defaults: RecipeDefaults;\n    readonly p4Mode: P4ModeCriteria;\n}',
+    declaration: 'export interface RecipePayload {\n    readonly phases: readonly RecipePhaseSpec[];\n    readonly gateChecks: readonly RecipeGateCheckSpec[];\n    readonly defaults: RecipeDefaults;\n    readonly p4Mode: P4ModeCriteria;\n    readonly breakers?: readonly RecipeBreakerSpec[];\n}',
   },
   {
     name: 'RecipePhaseSpec',
@@ -4432,6 +4577,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'ReviewPolicyRecord',
+    declaration: 'export interface ReviewPolicyRecord {\n    readonly recordId: ReviewPolicyRecordId;\n    readonly taskId: TaskId;\n    readonly tier: TrustTier;\n    readonly revision: number;\n}',
+  },
+  {
+    name: 'ReviewPolicyRecordId',
+    declaration: 'export type ReviewPolicyRecordId = Branded<\'ReviewPolicyRecordId\'>;',
+  },
+  {
+    name: 'RewindApplication',
+    declaration: 'export interface RewindApplication {\n    readonly run: TaskRunRecord;\n    readonly supersededPhaseRunIds: readonly string[];\n}',
+  },
+  {
+    name: 'RewindPreview',
+    declaration: 'export interface RewindPreview {\n    readonly snapshotId: string;\n    readonly invalidatedVersionIds: readonly string[];\n    readonly rerunPhaseIds: readonly string[];\n    readonly reusableClarificationIds: readonly string[];\n    readonly costHint: \'uncalibrated\';\n}',
   },
   {
     name: 'RpcError',
@@ -5292,6 +5453,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ToolSchema',
     declaration: 'export interface ToolSchema {\n    name: string;\n    description: string;\n    parameters: Record<string, unknown>;\n}',
+  },
+  {
+    name: 'TrustTier',
+    declaration: 'export type TrustTier = \'strict\' | \'balanced\' | \'trusted\';',
   },
   {
     name: 'TurnEndCancelCause',

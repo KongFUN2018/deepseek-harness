@@ -227,6 +227,7 @@ export class AttentionService extends TypertRemoteService {
     if (input.phaseRunId !== undefined) item = { ...item, phaseRunId: input.phaseRunId }
     if (input.submissionId !== undefined) item = { ...item, submissionId: input.submissionId }
     if (input.checkId !== undefined) item = { ...item, checkId: input.checkId }
+    if (input.impactSnapshot !== undefined) item = { ...item, impactSnapshot: input.impactSnapshot }
     await this.appendFact({
 
       kind: 'attention/item-created',
@@ -396,6 +397,7 @@ export class AttentionService extends TypertRemoteService {
     if (input.phaseRunId !== undefined) normalized = { ...normalized, phaseRunId: this.requireText(input.phaseRunId, 'phaseRunId') as NonNullable<CreateItemInput['phaseRunId']> }
     if (input.submissionId !== undefined) normalized = { ...normalized, submissionId: this.requireText(input.submissionId, 'submissionId') as NonNullable<CreateItemInput['submissionId']> }
     if (input.checkId !== undefined) normalized = { ...normalized, checkId: this.requireText(input.checkId, 'checkId') }
+    if (input.impactSnapshot !== undefined) normalized = { ...normalized, impactSnapshot: this.requireText(input.impactSnapshot, 'impactSnapshot') }
     return normalized
   }
 

@@ -127,6 +127,25 @@ export abstract class TaskHandle extends TypertRemoteService {
   /** Tail of the serial task write chain; mutating commands never interleave. */
   private writeTail: Promise<unknown> = Promise.resolve()
 
+  /** Registered completion guards (M5); consulted inside the write chain. */
+  private readonly completionGuards: Array<(task: TaskRecord) => Promise<void>> = []
+
+  /**
+   * Register one completion guard: `completeTask` runs every registered guard
+   * on the serial write chain after the state check passes; a throwing guard
+   * rejects the command before any durable write. Contributors own their
+   * disposal — the returned handle removes the guard.
+   * @param guard - async veto over one task about to complete.
+   * @returns the disposer that unregisters the guard.
+   */
+  registerCompletionGuard(guard: (task: TaskRecord) => Promise<void>): () => void {
+    this.completionGuards.push(guard)
+    return () => {
+      const at = this.completionGuards.indexOf(guard)
+      if (at >= 0) this.completionGuards.splice(at, 1)
+    }
+  }
+
   /**
    * Run one whole mutating command on the serial task write chain, so load,
    * transition, save, and publish of concurrent commands never interleave.
@@ -272,7 +291,9 @@ export abstract class TaskHandle extends TypertRemoteService {
 
   /**
    * Complete a task; the completion guard requires every phase run of the
-   * current run to have passed.
+   * current run to have passed (or retired into stale/superseded), then every
+   * registered M5 completion guard must approve — unsigned B items, suspended
+   * rewind decisions, and open blocking decisions veto here.
    * @param taskId - the task to complete.
    * @param mutation - actor, reason, expected revision, idempotency key.
    * @returns the post-commit task projection.
@@ -284,18 +305,45 @@ export abstract class TaskHandle extends TypertRemoteService {
       if (!canCompleteTask(task.state, phases.map(phase => phase.state))) {
         throw new TaskError('invalid-transition', 'completion guard failed: every phase run of the current run must have passed')
       }
+      for (const guard of [...this.completionGuards]) await guard(task)
       return {}
     })
+  }
+
+  /**
+   * Park one running task in `awaiting-decision`: the over-budget decision
+   * (M5 budget) holds scheduling without touching any phase run.
+   * @param taskId - the task to park.
+   * @param mutation - the task's expected revision plus actor metadata.
+   * @returns the post-commit task projection.
+   */
+  @Remote('markTaskAwaitingDecision')
+  async markTaskAwaitingDecision(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord> {
+    return this.mutateTask(TaskIdValue(taskId), mutation, 'awaitDecision')
+  }
+
+  /**
+   * Return one parked task from `awaiting-decision` to `running`; the
+   * resolved over-budget decision (append-budget outcome) resumes here.
+   * @param taskId - the task to resume.
+   * @param mutation - the task's expected revision plus actor metadata.
+   * @returns the post-commit task projection.
+   */
+  @Remote('resumeTaskFromDecision')
+  async resumeTaskFromDecision(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord> {
+    return this.mutateTask(TaskIdValue(taskId), mutation, 'resumeFromDecision')
   }
 
   /**
    * Open a new run on one task and make it the current run.
    * @param taskId - the owning task.
    * @param mutation - the task's expected revision plus actor metadata.
+   * @param parentRunId - the superseded branch this run replaces (rewind);
+   * omitted on the initial run.
    * @returns the new run.
    */
   @Remote('createTaskRun')
-  async createTaskRun(taskId: string, mutation: TaskMutationContext): Promise<TaskRunRecord> {
+  async createTaskRun(taskId: string, mutation: TaskMutationContext, parentRunId?: string): Promise<TaskRunRecord> {
     const provenance = provenanceOf(mutation)
     return this.serialized(async () => {
       const task = await this.loadTaskOrThrow(TaskIdValue(taskId))
@@ -306,6 +354,9 @@ export abstract class TaskHandle extends TypertRemoteService {
         pinnedRecipe: task.pinnedRecipe,
         revision: 1,
         createdAt: Date.now(),
+        ...(parentRunId === undefined
+          ? {}
+          : { parentRunId: TaskRunIdValue(this.resolveText(parentRunId, 'parentRunId')) }),
       }
       const updatedTask: TaskRecord = {
         ...task,
@@ -443,6 +494,7 @@ export abstract class TaskHandle extends TypertRemoteService {
         idempotencyKey: `gate-check:${result.submissionId}:${result.checkId}:${result.recordedAt}`,
       }
       await this.saveGateResult(result, provenance)
+      this.emit('gate-check/recorded', result)
       return result
     })
   }
@@ -492,6 +544,21 @@ export abstract class TaskHandle extends TypertRemoteService {
   @Remote('markPhaseStale')
   async markPhaseStale(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
     return this.mutatePhaseRun(PhaseRunIdValue(phaseRunId), mutation, 'stale')
+  }
+
+  /**
+   * Retire one phase run into `superseded`: the M5 rewind command. A
+   * superseded run is terminal and never blocks completion; unlike `stale`
+   * (invalidated inputs), superseded means the whole branch lost to a newer
+   * run, so in-flight states retire too — the rewind decision already
+   * committed to abandoning the branch.
+   * @param phaseRunId - the phase run the rewind retires.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the post-commit phase-run projection.
+   */
+  @Remote('markPhaseSuperseded')
+  async markPhaseSuperseded(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord> {
+    return this.mutatePhaseRun(PhaseRunIdValue(phaseRunId), mutation, 'supersede')
   }
 
   /**
@@ -790,7 +857,7 @@ export abstract class TaskHandle extends TypertRemoteService {
   }
 
   /** Contained fan-out: a broken listener never hides a committed change. */
-  private emit(name: 'task/updated' | 'task-run/updated' | 'phase-run/updated', payload: TaskRecord | TaskRunRecord | PhaseRunRecord): void {
+  private emit(name: 'task/updated' | 'task-run/updated' | 'phase-run/updated' | 'gate-check/recorded', payload: TaskRecord | TaskRunRecord | PhaseRunRecord | GateCheckResult): void {
     for (const listener of this.ctx.events.dispatch('emit', [name, payload])) {
       try {
         listener(payload)

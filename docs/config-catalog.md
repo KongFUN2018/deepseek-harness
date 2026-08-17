@@ -585,6 +585,22 @@ export interface Config {
 
 Source: [`packages/e2b/e2b/src/index.ts:43`](../packages/e2b/e2b/src/index.ts)
 
+<a id="deepseek-aidsh-edit-lock"></a>
+
+## `@deepseek-ai/dsh-edit-lock`
+
+Requires: `storageDomain` · `workbenchJournal` · `tasks` · `deliverables`
+
+```ts config-catalog
+/** Service configuration. */
+interface Config {
+  /** How often the expiry sweep scans for lapsed leases. */
+  sweepIntervalMs: number
+}
+```
+
+Source: [`packages/task-flow/edit-lock/src/index.ts:36`](../packages/task-flow/edit-lock/src/index.ts)
+
 <a id="deepseek-aidsh-fs-local"></a>
 
 ## `@deepseek-ai/dsh-fs-local`
@@ -2991,30 +3007,6 @@ export interface Config {
 
 Source: [`packages/web/web-search-perplexity/src/index.ts:32`](../packages/web/web-search-perplexity/src/index.ts)
 
-<a id="deepseek-aidsh-workbench-host"></a>
-
-## `@deepseek-ai/dsh-workbench-host`
-
-```ts config-catalog
-/** Loader config: attention items seeded at boot for the channel slice. */
-export interface Config {
-  /** Items present at boot; ids must be unique and fields non-empty. */
-  seedItems?: SeedItem[]
-}
-
-/** One attention item present in the inbox at boot. */
-export interface SeedItem {
-  /** Stable item identifier; unique within the seed list. */
-  itemId: string
-  /** Gate class of the item: B-class confirmations or C-class decisions. */
-  kind: 'b-confirm' | 'c-decision'
-  /** Human-readable inbox title for the item. */
-  title: string
-}
-```
-
-Source: [`packages/task-flow/workbench-host/src/index.ts:37`](../packages/task-flow/workbench-host/src/index.ts)
-
 <a id="deepseek-aidsh-workflow-worker-thread"></a>
 
 ## `@deepseek-ai/dsh-workflow-worker-thread`
@@ -3052,10 +3044,14 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-agent` ([`packages/core/agent/src/index.ts`](../packages/core/agent/src/index.ts))
 - `@deepseek-ai/dsh-api-gateway` — requires `typert` ([`packages/api/gateway/src/index.ts`](../packages/api/gateway/src/index.ts))
 - `@deepseek-ai/dsh-api-remotes` ([`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts))
+- `@deepseek-ai/dsh-attention` — requires `storageDomain` · `workbenchJournal` · `tasks` ([`packages/task-flow/attention/src/index.ts`](../packages/task-flow/attention/src/index.ts))
+- `@deepseek-ai/dsh-budget` — requires `storageDomain` · `workbenchJournal` · `tasks` · `attention` ([`packages/task-flow/budget/src/index.ts`](../packages/task-flow/budget/src/index.ts))
+- `@deepseek-ai/dsh-clarification` — requires `storageDomain` · `workbenchJournal` · `tasks` · `sessions` · `attention` ([`packages/task-flow/clarification/src/index.ts`](../packages/task-flow/clarification/src/index.ts))
 - `@deepseek-ai/dsh-client-locale` ([`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts))
 - `@deepseek-ai/dsh-client-modules` — requires `webServer` · `loader` ([`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts))
 - `@deepseek-ai/dsh-client-runtime` ([`packages/client/runtime/src/index.ts`](../packages/client/runtime/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-agent-preset` ([`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-attention-inbox` ([`packages/task-flow/client-ui-attention-inbox/src/index.ts`](../packages/task-flow/client-ui-attention-inbox/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-commands` ([`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-conversation` ([`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-cordis` ([`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts))
@@ -3079,6 +3075,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-skill` ([`packages/client/ui-skill/src/index.ts`](../packages/client/ui-skill/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-subagent` ([`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-task-board` ([`packages/task-flow/client-ui-task-board/src/index.ts`](../packages/task-flow/client-ui-task-board/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-task-detail` ([`packages/task-flow/client-ui-task-detail/src/index.ts`](../packages/task-flow/client-ui-task-detail/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-theme` ([`packages/client/ui-theme/src/index.ts`](../packages/client/ui-theme/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-tool` ([`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-trajectory` ([`packages/client/ui-trajectory/src/index.ts`](../packages/client/ui-trajectory/src/index.ts))
@@ -3090,17 +3087,22 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-command-goal` — requires `commands` · `goals` ([`packages/goal/command-goal/src/index.ts`](../packages/goal/command-goal/src/index.ts))
 - `@deepseek-ai/dsh-commands` ([`packages/interaction/commands/src/index.ts`](../packages/interaction/commands/src/index.ts))
 - `@deepseek-ai/dsh-cordis-client-runner` ([`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts))
-- `@deepseek-ai/dsh-deliverable-local` — requires `storageDomain` ([`packages/task-flow/deliverable-local/src/index.ts`](../packages/task-flow/deliverable-local/src/index.ts))
+- `@deepseek-ai/dsh-deliverable-local` — requires `storageDomain` · `workbenchJournal` ([`packages/task-flow/deliverable-local/src/index.ts`](../packages/task-flow/deliverable-local/src/index.ts))
 - `@deepseek-ai/dsh-fs-e2b` — requires `e2b` ([`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts))
 - `@deepseek-ai/dsh-fs-observation-policy` ([`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts))
+- `@deepseek-ai/dsh-gate` — requires `tasks` · `recipes` · `attention` ([`packages/task-flow/gate/src/index.ts`](../packages/task-flow/gate/src/index.ts))
 - `@deepseek-ai/dsh-goal-round-driver` — requires `agents` · `goals` · `sessions` ([`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
+- `@deepseek-ai/dsh-impact-propagation` — requires `deliverables` · `tasks` · `workbenchJournal` ([`packages/task-flow/impact-propagation/src/index.ts`](../packages/task-flow/impact-propagation/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
 - `@deepseek-ai/dsh-recipe` ([`packages/task-flow/recipe/src/index.ts`](../packages/task-flow/recipe/src/index.ts))
 - `@deepseek-ai/dsh-recipe-engine-core` — requires `tasks` · `recipes` · `agents` · `goals` · `storageDomain` · `workbenchJournal` ([`packages/task-flow/recipe-engine-core/src/index.ts`](../packages/task-flow/recipe-engine-core/src/index.ts))
+- `@deepseek-ai/dsh-recipe-multiphase` — requires `recipeEngine` ([`packages/task-flow/recipe-multiphase/src/index.ts`](../packages/task-flow/recipe-multiphase/src/index.ts))
+- `@deepseek-ai/dsh-review-policy` — requires `storageDomain` · `workbenchJournal` · `tasks` · `attention` · `recipes` ([`packages/task-flow/review-policy/src/index.ts`](../packages/task-flow/review-policy/src/index.ts))
+- `@deepseek-ai/dsh-rewind` — requires `deliverables` · `tasks` · `attention` · `workbenchJournal` ([`packages/task-flow/rewind/src/index.ts`](../packages/task-flow/rewind/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
 - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
 - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))
@@ -3118,6 +3120,8 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-tool-cordis` — requires `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect` ([`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts))
 - `@deepseek-ai/dsh-tool-subagent-control` — requires `tools` · `subagents` ([`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts))
 - `@deepseek-ai/dsh-user-questions` ([`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts))
+- `@deepseek-ai/dsh-workbench-host` — requires `attention` · `workbenchJournal` ([`packages/task-flow/workbench-host/src/index.ts`](../packages/task-flow/workbench-host/src/index.ts))
+- `@deepseek-ai/dsh-workbench-host-stream` — requires `workbenchJournal` ([`packages/task-flow/workbench-host-stream/src/index.ts`](../packages/task-flow/workbench-host-stream/src/index.ts))
 - `@deepseek-ai/dsh-workbench-journal` — requires `storageDomain` ([`packages/task-flow/workbench-journal/src/index.ts`](../packages/task-flow/workbench-journal/src/index.ts))
 - `@deepseek-ai/dsh-workspace` — requires `storageDomain` · `sessionPersistence` ([`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts))
 

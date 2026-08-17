@@ -58,6 +58,8 @@ export interface CreateItemInput {
   readonly checkId?: string
   readonly kind: AttentionItemKind
   readonly decisionKind: string
+  /** Serialized impact preview the decision reads (rewind); M4 reserved, M5 writes. */
+  readonly impactSnapshot?: string
   readonly options: readonly string[]
 }
 

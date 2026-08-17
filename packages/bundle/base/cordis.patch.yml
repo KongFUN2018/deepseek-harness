@@ -301,6 +301,21 @@
     - id: edit-lock
       name: '@deepseek-ai/dsh-edit-lock'
 
+    # Task-flow rewind: impact-closure preview on a blocking decision item,
+    # then branch replacement (new run supersedes the retired one).
+    - id: rewind
+      name: '@deepseek-ai/dsh-rewind'
+
+    # Task-flow budget: explicit per-task token/duration/rerun limits with
+    # threshold decisions (80% warning items, over-limit task parking).
+    - id: budget
+      name: '@deepseek-ai/dsh-budget'
+
+    # Task-flow review policy: trust tiers, deferred B-class confirmation,
+    # completion guards, and the repair-fuse breaker with recovery decisions.
+    - id: review-policy
+      name: '@deepseek-ai/dsh-review-policy'
+
     # Task-flow durable task provider: implements the task storage hooks over
     # the storage stack and appends journal facts as commit points.
     - id: task-local

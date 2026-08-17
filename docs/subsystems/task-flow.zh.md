@@ -81,6 +81,68 @@ Attention service: the M4 persistent-decision domain, with idempotent item creat
 
 Source: [`packages/task-flow/attention/src/index.ts:53`](../../packages/task-flow/attention/src/index.ts)
 
+<a id="ctxbudget--budgetservice"></a>
+
+### `ctx.budget` — `BudgetService`
+
+Budget service: the M5 explicit task ledger with threshold decisions.
+
+```ts cordis-catalog
+/**
+ * Provision one task's ledger. One record per task; explicit limits only —
+ * an absent dimension is unlimited, not defaulted.
+ * @param taskId - the task the ledger tracks.
+ * @param limits - explicit limits; at least one dimension.
+ * @param actor - provisioning actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the stored ledger record.
+ */
+@Remote('provisionBudget') async provisionBudget(taskId: string, limits: BudgetLimits, actor: string, idempotencyKey: string): Promise<BudgetRecord>
+
+/**
+ * Append budget: raise explicit limits and re-arm the warning latch.
+ * @param taskId - the task whose ledger grows.
+ * @param deltas - the limit increases per dimension; at least one positive.
+ * @param expectedRevision - the ledger revision the caller read.
+ * @param actor - appending actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the post-append ledger record.
+ */
+@Remote('appendBudget') async appendBudget( taskId: string, deltas: BudgetLimits, expectedRevision: number, actor: string, idempotencyKey: string, ): Promise<BudgetRecord>
+
+/**
+ * Record one explicit usage intake and evaluate thresholds per dimension.
+ * @param taskId - the task whose ledger accumulates.
+ * @param usage - the spend delta; absent dimensions spend nothing.
+ * @param actor - recording actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the post-intake ledger record.
+ */
+@Remote('recordUsage') async recordUsage(taskId: string, usage: BudgetUsage, actor: string, idempotencyKey: string): Promise<BudgetRecord>
+
+/**
+ * Read one task's ledger.
+ * @param taskId - the task the ledger tracks.
+ * @returns the ledger record, or undefined when never provisioned.
+ */
+@Remote('getBudget') getBudget(taskId: string): BudgetRecord | undefined
+
+/**
+ * Land one resolved budget-exceeded decision on the task plane: the
+ * append-budget outcome grows the ledger and resumes the task; pause and
+ * cancel route to the task commands. The item must already be resolved —
+ * no silent landing of an open decision.
+ * @param itemId - the resolved budget-exceeded item.
+ * @param deltas - the limit increases (append-budget only; at least one).
+ * @param taskRevision - the task revision the caller read.
+ * @param actor - landing actor.
+ * @param idempotencyKey - caller-owned replay key.
+ */
+@Remote('applyBudgetDecision') async applyBudgetDecision( itemId: string, deltas: BudgetLimits, taskRevision: number, actor: string, idempotencyKey: string, ): Promise<void>
+```
+
+Source: [`packages/task-flow/budget/src/index.ts:56`](../../packages/task-flow/budget/src/index.ts)
+
 <a id="ctxclarifications--clarificationservice"></a>
 
 ### `ctx.clarifications` — `ClarificationService`
@@ -222,7 +284,7 @@ getVersion(versionId: string): DeliverableVersion | undefined
 getImpactSnapshot(snapshotId: string): ImpactSnapshot | undefined
 ```
 
-Source: [`packages/task-flow/deliverable-local/src/index.ts:71`](../../packages/task-flow/deliverable-local/src/index.ts)
+Source: [`packages/task-flow/deliverable-local/src/index.ts:78`](../../packages/task-flow/deliverable-local/src/index.ts)
 
 <a id="ctxeditlock--editlockservice"></a>
 
@@ -279,7 +341,7 @@ Source: [`packages/task-flow/edit-lock/src/index.ts:53`](../../packages/task-flo
 
 Watches gate-running phase runs and parks any run whose recipe declares a B/C check for the phase, awaiting an external decision. A-check-only runs pass through untouched so the engine can settle them.
 
-Source: [`packages/task-flow/gate/src/index.ts:32`](../../packages/task-flow/gate/src/index.ts)
+Source: [`packages/task-flow/gate/src/index.ts:33`](../../packages/task-flow/gate/src/index.ts)
 
 <a id="ctximpactpropagation--impactpropagationservice"></a>
 
@@ -407,7 +469,85 @@ Immutable recipe revision registry.
 @Remote('list') list(): RecipeIdentity[]
 ```
 
-Source: [`packages/task-flow/recipe/src/index.ts:107`](../../packages/task-flow/recipe/src/index.ts)
+Source: [`packages/task-flow/recipe/src/index.ts:133`](../../packages/task-flow/recipe/src/index.ts)
+
+<a id="ctxreviewpolicy--reviewpolicyservice"></a>
+
+### `ctx.reviewPolicy` — `ReviewPolicyService`
+
+Review-policy service: trust tiers, completion guards, and repair fuses.
+
+```ts cordis-catalog
+/**
+ * Set one task's trust tier; unprovisioned tasks read as strict.
+ * @param taskId - the task whose tier changes.
+ * @param tier - the new tier.
+ * @param actor - setting actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the stored tier record.
+ */
+@Remote('setTier') async setTier(taskId: string, tier: TrustTier, actor: string, idempotencyKey: string): Promise<ReviewPolicyRecord>
+
+/**
+ * Read one task's tier.
+ * @param taskId - the task to read.
+ * @returns the stored tier, or strict when unprovisioned.
+ */
+@Remote('getTier') getTier(taskId: string): TrustTier
+
+/**
+ * The gate service's read: whether B-class batch confirmation may run
+ * ahead (trusted tier only). C-class checks always block.
+ * @param taskId - the task being gated.
+ * @returns true only when the task runs the trusted tier.
+ */
+@Remote('defersBatchConfirm') defersBatchConfirm(taskId: string): boolean
+
+/**
+ * Land one resolved breaker decision on the task plane: continue-repair
+ * resets the counter and resumes the parked run; pause and cancel route to
+ * the task commands; patch only journals the choice.
+ * @param itemId - the resolved breaker-tripped item.
+ * @param phaseRunRevision - the parked phase run's revision the caller read.
+ * @param actor - landing actor.
+ * @param idempotencyKey - caller-owned replay key.
+ */
+@Remote('applyBreakerDecision') async applyBreakerDecision(itemId: string, phaseRunRevision: number, actor: string, idempotencyKey: string): Promise<void>
+```
+
+Source: [`packages/task-flow/review-policy/src/index.ts:46`](../../packages/task-flow/review-policy/src/index.ts)
+
+<a id="ctxrewind--rewindservice"></a>
+
+### `ctx.rewind` — `RewindService`
+
+Rewind service: preview-through-decision branch replacement.
+
+```ts cordis-catalog
+/**
+ * Request one rewind: compute the impact closure, persist the preview, and
+ * open the decision item. No task-plane write happens before the decision.
+ * @param taskId - the task whose branch the rewind would replace.
+ * @param rootVersionIds - the deliverable versions the upstream edit staled.
+ * @param actor - requesting actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the open rewind decision item.
+ */
+@Remote('requestRewind') async requestRewind( taskId: string, rootVersionIds: string[], actor: string, idempotencyKey: string, ): Promise<RewindPreview & { itemId: string }>
+
+/**
+ * Apply one resolved rewind decision: create the successor run, supersede
+ * the retired branch's phase runs, and journal the branch fact.
+ * @param itemId - the resolved rewind decision item.
+ * @param taskRevision - the task revision the caller read.
+ * @param actor - applying actor.
+ * @param idempotencyKey - caller-owned replay key.
+ * @returns the new run and the retired phase runs.
+ */
+@Remote('applyRewind') async applyRewind(itemId: string, taskRevision: number, actor: string, idempotencyKey: string): Promise<RewindApplication>
+```
+
+Source: [`packages/task-flow/rewind/src/index.ts:40`](../../packages/task-flow/rewind/src/index.ts)
 
 <a id="ctxtasks--taskhandle-abstract-seam"></a>
 
@@ -416,6 +556,16 @@ Source: [`packages/task-flow/recipe/src/index.ts:107`](../../packages/task-flow/
 Task service: durable task/run/phase projections and guarded commands.
 
 ```ts cordis-catalog
+/**
+ * Register one completion guard: `completeTask` runs every registered guard
+ * on the serial write chain after the state check passes; a throwing guard
+ * rejects the command before any durable write. Contributors own their
+ * disposal — the returned handle removes the guard.
+ * @param guard - async veto over one task about to complete.
+ * @returns the disposer that unregisters the guard.
+ */
+registerCompletionGuard(guard: (task: TaskRecord) => Promise<void>): () => void
+
 /**
  * Create a task pinned to the latest registered revision of one recipe.
  * @param recipeId - raw recipe identifier.
@@ -485,7 +635,9 @@ Task service: durable task/run/phase projections and guarded commands.
 
 /**
  * Complete a task; the completion guard requires every phase run of the
- * current run to have passed.
+ * current run to have passed (or retired into stale/superseded), then every
+ * registered M5 completion guard must approve — unsigned B items, suspended
+ * rewind decisions, and open blocking decisions veto here.
  * @param taskId - the task to complete.
  * @param mutation - actor, reason, expected revision, idempotency key.
  * @returns the post-commit task projection.
@@ -493,12 +645,32 @@ Task service: durable task/run/phase projections and guarded commands.
 @Remote('completeTask') async completeTask(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>
 
 /**
+ * Park one running task in `awaiting-decision`: the over-budget decision
+ * (M5 budget) holds scheduling without touching any phase run.
+ * @param taskId - the task to park.
+ * @param mutation - the task's expected revision plus actor metadata.
+ * @returns the post-commit task projection.
+ */
+@Remote('markTaskAwaitingDecision') async markTaskAwaitingDecision(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>
+
+/**
+ * Return one parked task from `awaiting-decision` to `running`; the
+ * resolved over-budget decision (append-budget outcome) resumes here.
+ * @param taskId - the task to resume.
+ * @param mutation - the task's expected revision plus actor metadata.
+ * @returns the post-commit task projection.
+ */
+@Remote('resumeTaskFromDecision') async resumeTaskFromDecision(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>
+
+/**
  * Open a new run on one task and make it the current run.
  * @param taskId - the owning task.
  * @param mutation - the task's expected revision plus actor metadata.
+ * @param parentRunId - the superseded branch this run replaces (rewind);
+ * omitted on the initial run.
  * @returns the new run.
  */
-@Remote('createTaskRun') async createTaskRun(taskId: string, mutation: TaskMutationContext): Promise<TaskRunRecord>
+@Remote('createTaskRun') async createTaskRun(taskId: string, mutation: TaskMutationContext, parentRunId?: string): Promise<TaskRunRecord>
 
 /**
  * Create one phase run inside a run.
@@ -576,6 +748,18 @@ Task service: durable task/run/phase projections and guarded commands.
  * @returns the post-commit phase-run projection.
  */
 @Remote('markPhaseStale') async markPhaseStale(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
+
+/**
+ * Retire one phase run into `superseded`: the M5 rewind command. A
+ * superseded run is terminal and never blocks completion; unlike `stale`
+ * (invalidated inputs), superseded means the whole branch lost to a newer
+ * run, so in-flight states retire too — the rewind decision already
+ * committed to abandoning the branch.
+ * @param phaseRunId - the phase run the rewind retires.
+ * @param mutation - the phase run's expected revision plus actor metadata.
+ * @returns the post-commit phase-run projection.
+ */
+@Remote('markPhaseSuperseded') async markPhaseSuperseded(phaseRunId: string, mutation: TaskMutationContext): Promise<PhaseRunRecord>
 
 /**
  * Park one gate-running phase run in `awaiting-input`: the M3 clarification
@@ -742,6 +926,29 @@ Append-only journal service; the durable truth task-flow projections rebuild fro
 ```
 
 Source: [`packages/task-flow/workbench-journal/src/index.ts:39`](../../packages/task-flow/workbench-journal/src/index.ts)
+
+<a id="gate-check-events"></a>
+
+### `gate-check/*` events
+
+<a id="gate-checkrecorded--emit"></a>
+
+#### `gate-check/recorded` — emit
+
+One stored gate-check verdict; the breaker counter (M5 review-policy) observes this instead of polling. Droppable — the journal is the authoritative record.
+
+```ts cordis-catalog
+/**
+ * One stored gate-check verdict; the breaker counter (M5 review-policy)
+ * observes this instead of polling. Droppable — the journal is the
+ * authoritative record.
+ * @param result - the stored verdict.
+ * @mode emit
+ */
+'gate-check/recorded'(result: GateCheckResult): void
+```
+
+Source: [`packages/task-flow/task/src/types.ts:225`](../../packages/task-flow/task/src/types.ts)
 
 <a id="phase-run-events"></a>
 

@@ -127,6 +127,26 @@ flowchart LR
   pkg_recipes["recipes"]
   pkg_agents["agents"]
   pkg_goals["goals"]
+  pkg_attention["attention"]
+  svc_attention["ctx.attention<br/>Task-flow business-decision inbox"]
+  pkg_gate["gate"]
+  svc_gate["ctx.gate<br/>Task-flow submission gate service"]
+  pkg_edit_lock["edit-lock"]
+  svc_editLock["ctx.editLock<br/>Task-flow deliverable edit lock"]
+  pkg_impact_propagation["impact-propagation"]
+  svc_impactPropagation["ctx.impactPropagation<br/>Task-flow impact closure application"]
+  pkg_clarification["clarification"]
+  svc_clarifications["ctx.clarifications<br/>Task-flow clarification requests"]
+  pkg_recipe_multiphase["recipe-multiphase"]
+  svc_recipeMultiphase["ctx.recipeMultiphase<br/>Task-flow multiphase recipe executor"]
+  pkg_workbench_host_stream["workbench-host-stream"]
+  svc_workbenchHostStream["ctx.workbenchHostStream<br/>Task-flow journal change stream"]
+  pkg_rewind["rewind"]
+  svc_rewind["ctx.rewind<br/>Task-flow rewind branch replacement"]
+  pkg_budget["budget"]
+  svc_budget["ctx.budget<br/>Task-flow budget ledger"]
+  pkg_review_policy["review-policy"]
+  svc_reviewPolicy["ctx.reviewPolicy<br/>Task-flow review policy tiers and fuse"]
   pkg_e2b["e2b"]
   svc_e2b["ctx.e2b<br/>E2B sandbox lifecycle owner"]
   pkg_fs_e2b["fs-e2b"]
@@ -221,8 +241,11 @@ flowchart LR
   pkg_approval --> svc_approval
   pkg_attachment --> svc_attachments
   pkg_attachment_local --> svc_attachments
+  pkg_attention --> svc_attention
   pkg_bash_local --> svc_shell
   pkg_bash_sandbox --> svc_shell
+  pkg_budget --> svc_budget
+  pkg_clarification --> svc_clarifications
   pkg_code_runtime --> svc_codeRuntime
   pkg_code_runtime_worker --> svc_codeRuntime
   pkg_commands --> svc_commands
@@ -238,11 +261,14 @@ flowchart LR
   pkg_directory_picker_browse --> svc_directoryPicker
   pkg_directory_picker_native --> svc_directoryPicker
   pkg_e2b --> svc_e2b
+  pkg_edit_lock --> svc_editLock
   pkg_fs --> svc_fs
   pkg_fs_e2b --> svc_fs
   pkg_fs_local --> svc_fs
   pkg_fs_sandbox --> svc_fs
+  pkg_gate --> svc_gate
   pkg_goal --> svc_goals
+  pkg_impact_propagation --> svc_impactPropagation
   pkg_invariants --> svc_invariants
   pkg_jobs --> svc_jobs
   pkg_jobs_local --> svc_jobs
@@ -259,6 +285,9 @@ flowchart LR
   pkg_pwsh_local --> svc_shell
   pkg_recipe --> svc_recipes
   pkg_recipe_engine_core --> svc_recipeEngine
+  pkg_recipe_multiphase --> svc_recipeMultiphase
+  pkg_review_policy --> svc_reviewPolicy
+  pkg_rewind --> svc_rewind
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
   pkg_sandbox_policy --> svc_sandboxPolicy
@@ -315,6 +344,7 @@ flowchart LR
   pkg_web_search_perplexity --> svc_web
   pkg_webserver --> svc_webServer
   pkg_workbench_host --> svc_workbenchHost
+  pkg_workbench_host_stream --> svc_workbenchHostStream
   pkg_workbench_journal --> svc_workbenchJournal
   pkg_workflow --> svc_workflowEngine
   pkg_workflow_worker_thread --> svc_workflowEngine
@@ -330,6 +360,10 @@ flowchart LR
   svc_approval --> pkg_tools
   svc_attachments --> pkg_host_runtime
   svc_attachments --> pkg_llm_pi_ai
+  svc_attention --> pkg_api_remotes
+  svc_attention --> pkg_workbench_host
+  svc_budget --> pkg_workbench_host
+  svc_clarifications --> pkg_api_remotes
   svc_clientModules --> pkg_hmr
   svc_codeRuntime --> pkg_tools
   svc_compaction --> pkg_compaction_basic
@@ -343,6 +377,8 @@ flowchart LR
   svc_e2b --> pkg_fs_e2b
   svc_e2b --> pkg_subprocess_e2b
   svc_fs --> pkg_tool_fs
+  svc_gate --> pkg_api_remotes
+  svc_impactPropagation --> pkg_recipe_engine_core
   svc_invariants --> pkg_agent
   svc_invariants --> pkg_agent_loop
   svc_invariants --> pkg_scope
@@ -360,7 +396,11 @@ flowchart LR
   svc_recipeEngine --> pkg_storage_domain
   svc_recipeEngine --> pkg_tasks
   svc_recipeEngine --> pkg_workbench_journal
+  svc_recipeMultiphase --> pkg_recipe_engine_core
   svc_recipes --> pkg_api_remotes
+  svc_reviewPolicy --> pkg_gate
+  svc_reviewPolicy --> pkg_workbench_host
+  svc_rewind --> pkg_workbench_host
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -442,6 +482,7 @@ flowchart LR
   svc_webServer --> pkg_modules
   svc_workbenchHost --> pkg_api_remotes
   svc_workbenchHost --> pkg_apiproxy
+  svc_workbenchHostStream --> pkg_workbench_host
   svc_workbenchJournal --> pkg_storage_domain
   svc_workflowEngine --> pkg_tool_ralph
   svc_workflowEngine --> pkg_tool_workflow
@@ -490,6 +531,16 @@ flowchart LR
 | `ctx.deliverables` | `core` | [`deliverable-local`](../packages/task-flow/deliverable-local) | - | [`storage-domain`](../packages/storage/storage-domain) | - | Owns immutable version chains per deliverable over one storageDomain unit; stale-write rejection, current-input listing, and downstream invalidation serve the task write chain and the client task board. |
 | `ctx.tasks` | `core` | [`task-local`](../packages/task-flow/task-local) | - | [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal), [`deliverable-local`](../packages/task-flow/deliverable-local) | - | Implements the TaskHandle storage hooks over one storageDomain unit; every write appends its journal fact as the commit point, and submission acceptance validates deliverable refs in the task write chain. |
 | `ctx.recipeEngine` | `core` | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | `tasks`, `recipes`, `agents`, `goals`, [`storage-domain`](../packages/storage/storage-domain), [`workbench-journal`](../packages/task-flow/workbench-journal) | - | Schedules pinned-recipe phase runs and drives the submission-gate-pass chain through a contributed phase executor, reconciling pause, cancel, and restart recovery against the workbench journal. |
+| `ctx.attention` | `core` | [`attention`](../packages/task-flow/attention) | - | [`workbench-host`](../packages/task-flow/workbench-host), [`api-remotes`](../packages/api/remotes) | - | Persists B-class confirmations and C-class decisions as open items over one storageDomain unit; resolution lands the frozen task commands and the browser workbench renders the inbox stream. |
+| `ctx.gate` | `core` | [`gate`](../packages/task-flow/gate) | - | [`api-remotes`](../packages/api/remotes) | - | Runs a submission through its frozen acceptance checks, parks gate-running phase runs behind open items when the review policy defers batch confirmation, and records every verdict on the change stream. |
+| `ctx.editLock` | `core` | [`edit-lock`](../packages/task-flow/edit-lock) | - | - | - | First-write-wins leases over deliverable versions on one storageDomain unit; acquisition freezes consuming phase scheduling, release or expiry clears the lease. |
+| `ctx.impactPropagation` | `core` | [`impact-propagation`](../packages/task-flow/impact-propagation) | - | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | Applies a persisted deliverable ImpactSnapshot to the task plane: affected phase runs move to stale and their gate verdicts are annotated stale so they no longer support a pass. |
+| `ctx.clarifications` | `core` | [`clarification`](../packages/task-flow/clarification) | - | [`api-remotes`](../packages/api/remotes) | - | Persists model-asked clarification questions with answers over one storageDomain unit; open questions gate the task write chain until answered. |
+| `ctx.recipeMultiphase` | `core` | [`recipe-multiphase`](../packages/task-flow/recipe-multiphase) | - | [`recipe-engine-core`](../packages/task-flow/recipe-engine-core) | - | Contributes the phase executor for multiphase recipes; the engine drives each phase run through submission and gating per the frozen recipe graph. |
+| `ctx.workbenchHostStream` | `core` | [`workbench-host-stream`](../packages/task-flow/workbench-host-stream) | - | [`workbench-host`](../packages/task-flow/workbench-host) | - | Project journal appends onto a push event the browser workbench consumes, keeping the inbox and task board live without polling. |
+| `ctx.rewind` | `core` | [`rewind`](../packages/task-flow/rewind) | - | [`workbench-host`](../packages/task-flow/workbench-host) | - | Computes the deliverable impact closure onto a blocking decision item and, on a confirmed outcome, creates the successor task run and supersedes the retired branch phase runs. |
+| `ctx.budget` | `core` | [`budget`](../packages/task-flow/budget) | - | [`workbench-host`](../packages/task-flow/workbench-host) | - | One explicit ledger per task over token, duration, and rerun dimensions; recording evaluates thresholds (80% warnings, over-limit parking) and lands resolved decisions. |
+| `ctx.reviewPolicy` | `core` | [`review-policy`](../packages/task-flow/review-policy) | - | [`gate`](../packages/task-flow/gate), [`workbench-host`](../packages/task-flow/workbench-host) | - | Owns trust tiers (strict default, trusted defers B-class confirmation), completion guards over open items, and the repair-fuse breaker that parks runs on consecutive failed verdicts. |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | Owns one shared E2B SDK handle, remote working directory, and final sandbox disposition so both fundamental E2B providers inhabit the same Linux runtime. |
 | `ctx.subprocess` | `seam` | [`subprocess`](../packages/subprocess/subprocess) | [`subprocess-local`](../packages/subprocess/subprocess-local), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`terminal-bash`](../packages/terminal/terminal-bash), [`lsp-stdio`](../packages/lsp/lsp-stdio), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | - | The bash executors, the PTY shell backend, the LSP host, and the out-of-process ACP, Codex, and Claude Code subagent backends spawn through ctx.subprocess; the service owns process coordinates, tree/session lifetime, stdio dispositions, terminal mechanics, and kill escalation. |
 | `ctx.shell` | `seam` | [`shell`](../packages/shell/shell) | [`bash-local`](../packages/shell/bash-local), [`bash-sandbox`](../packages/shell/bash-sandbox), [`pwsh-local`](../packages/shell/pwsh-local) | [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) | - | The model-facing shell tools and hook bridges consume this seam; sandboxed, remote, or PowerShell executors replace bash-local without touching them. |

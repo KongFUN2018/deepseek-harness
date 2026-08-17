@@ -17,6 +17,8 @@ export type TaskCommand =
   | 'settleCancel'
   | 'complete'
   | 'fail'
+  | 'awaitDecision'
+  | 'resumeFromDecision'
 
 /** Allowed source states per task command. */
 const TASK_SOURCES: Readonly<Record<TaskCommand, readonly TaskState[]>> = {
@@ -28,6 +30,8 @@ const TASK_SOURCES: Readonly<Record<TaskCommand, readonly TaskState[]>> = {
   settleCancel: ['cancelling'],
   complete: ['running'],
   fail: ['running'],
+  awaitDecision: ['running'],
+  resumeFromDecision: ['awaiting-decision'],
 }
 
 /** Destination state per task command. */
@@ -40,6 +44,8 @@ const TASK_NEXT: Readonly<Record<TaskCommand, TaskState>> = {
   settleCancel: 'cancelled',
   complete: 'completed',
   fail: 'failed',
+  awaitDecision: 'awaiting-decision',
+  resumeFromDecision: 'running',
 }
 
 /**
@@ -56,15 +62,16 @@ export function taskTransition(state: TaskState, command: TaskCommand): TaskStat
 /**
  * M1 completion guard: the task runs and every phase run of the current run
  * passed. Retired runs do not block completion: an impact-staled run is a
- * terminal old run the engine already replaced with a fresh passed run.
- * Open decisions, unsigned B items, and stale deliverables enter the guard
- * when their services land (M3/M4).
+ * terminal old run the engine already replaced with a fresh passed run, and
+ * a superseded run is the branch a rewind retired (M5). Open decisions,
+ * unsigned B items, and stale deliverables enter through the registered
+ * completion guards (M5), which `completeTask` consults after this check.
  * @param state - the task's current state.
  * @param phaseStates - every phase-run state of the current run.
  * @returns whether the task may complete.
  */
 export function canCompleteTask(state: TaskState, phaseStates: readonly PhaseRunState[]): boolean {
-  return state === 'running' && phaseStates.length > 0 && phaseStates.every(phase => phase === 'passed' || phase === 'stale')
+  return state === 'running' && phaseStates.length > 0 && phaseStates.every(phase => phase === 'passed' || phase === 'stale' || phase === 'superseded')
 }
 
 /**
@@ -83,6 +90,7 @@ export type PhaseCommand =
   | 'fail'
   | 'cancel'
   | 'stale'
+  | 'supersede'
   | 'awaitInput'
   | 'awaitDecision'
   | 'resumeFromAwaiting'
@@ -96,6 +104,7 @@ const PHASE_SOURCES: Readonly<Record<PhaseCommand, readonly PhaseRunState[]>> = 
   fail: ['gate-running'],
   cancel: ['created', 'scheduled', 'running', 'submitting', 'submitted', 'gate-running'],
   stale: ['created', 'scheduled', 'submitted', 'gate-running', 'awaiting-input', 'awaiting-decision', 'patching', 'passed'],
+  supersede: ['created', 'scheduled', 'running', 'submitting', 'submitted', 'gate-running', 'awaiting-input', 'awaiting-decision', 'patching', 'passed', 'stale'],
   awaitInput: ['gate-running'],
   awaitDecision: ['gate-running'],
   resumeFromAwaiting: ['awaiting-input', 'awaiting-decision'],
@@ -110,6 +119,7 @@ const PHASE_NEXT: Readonly<Record<PhaseCommand, PhaseRunState>> = {
   fail: 'failed',
   cancel: 'cancelled',
   stale: 'stale',
+  supersede: 'superseded',
   awaitInput: 'awaiting-input',
   awaitDecision: 'awaiting-decision',
   resumeFromAwaiting: 'gate-running',

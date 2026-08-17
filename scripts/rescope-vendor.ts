@@ -104,6 +104,19 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   // GROUP_ORDER holds `packages/<group>/` directory names, not package names.
   { file: 'scripts/gen-module-graph.ts', upstream: ['cordis'] },
   { file: 'scripts/gen-doc-graphs.ts', upstream: ['cordis'] },
+  // `cordis` is also the Cordis UI locale namespace (registered in locales.ts
+  // and consumed as PropsLocale<'cordis'> / t('cordis')), and the `@`-trigger
+  // source's display name: product data, not package references. Renaming
+  // them broke the LocaleNamespaceMap merge and changed visible copy.
+  { file: 'packages/extensions/ui-cordis/src/client/locales.ts', upstream: ['cordis'] },
+  { file: 'packages/extensions/ui-cordis/src/client/CordisActionRow.tsx', upstream: ['cordis'] },
+  { file: 'packages/extensions/ui-cordis/src/client/CordisDefineRow.tsx', upstream: ['cordis'] },
+  { file: 'packages/extensions/ui-cordis/src/client/CordisPanel.tsx', upstream: ['cordis'] },
+  { file: 'packages/extensions/ui-cordis/src/client/CordisRunRow.tsx', upstream: ['cordis'] },
+  { file: 'packages/client/ui-settings-plugin-inventory/src/client/PluginInventorySettingsTab.tsx', upstream: ['cordis'] },
+  // This file mixes product data (the trigger source name above) with the
+  // scoped Remote event names pinned in POSTCONDITIONS below.
+  { file: 'packages/extensions/ui-cordis/src/client/index.ts', upstream: ['cordis'] },
 ]
 
 /** A string that must appear exactly `count` times once the rescope has run. */
@@ -133,6 +146,13 @@ const POSTCONDITIONS: readonly PostCondition[] = [
   { file: 'apps/cli/config/agent-presets/cordis/agent.cordis.yml', text: 'The `cordis` agent preset', count: 1 },
   { file: 'apps/cli/config/agent-presets/cordis/agent.cordis.yml', text: 'corrupting the `cordis` preset', count: 1 },
   { file: 'packages/examples/acp-demo/tests/built-bin.e2e.ts', text: '\'cordis\', \'loader\', \'include\', \'timer\', \'hmr\', \'logger-console\',', count: 1 },
+  // The Remote event subscriptions the generic pass no longer owns (the file
+  // is skipped for the trigger source name); each must keep matching the
+  // host-runner emit side.
+  { file: 'packages/extensions/ui-cordis/src/client/index.ts', text: "'@deepseek-ai/cordis/dynamic-package'", count: 1 },
+  { file: 'packages/extensions/ui-cordis/src/client/index.ts', text: "'@deepseek-ai/cordis/dynamic-retract'", count: 1 },
+  { file: 'packages/extensions/ui-cordis/src/client/index.ts', text: "'@deepseek-ai/cordis/request-run'", count: 1 },
+  { file: 'packages/extensions/ui-cordis/src/client/index.ts', text: "'@deepseek-ai/cordis/request-run-resolved'", count: 1 },
 ]
 
 /**

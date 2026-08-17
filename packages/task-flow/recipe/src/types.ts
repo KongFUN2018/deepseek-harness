@@ -58,12 +58,22 @@ export interface P4ModeCriteria {
   readonly mode: P4Mode
 }
 
+/** Explicit per-key repair fuse; uncalibrated keys stay absent (M5). */
+export interface RecipeBreakerSpec {
+  /** Matches `RecipeGateCheckSpec.circuitBreaker`; one key names one fuse. */
+  readonly key: string
+  /** Consecutive failed A repairs that trip the fuse; explicit, never defaulted. */
+  readonly maxConsecutiveRepairs: number
+}
+
 /** Canonical revision payload; the registry computes contentHash over its JSON. */
 export interface RecipePayload {
   readonly phases: readonly RecipePhaseSpec[]
   readonly gateChecks: readonly RecipeGateCheckSpec[]
   readonly defaults: RecipeDefaults
   readonly p4Mode: P4ModeCriteria
+  /** Repair fuses keyed by `circuitBreaker`; checks naming a key require one. */
+  readonly breakers?: readonly RecipeBreakerSpec[]
 }
 
 /** Stored immutable revision: identity, validated payload, and its hash. */

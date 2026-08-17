@@ -51,7 +51,33 @@ export function validateRecipePayload(payload: RecipePayload): string[] {
     checkIds.add(check.checkId)
     if (!phaseIds.has(check.phaseId)) problems.push(`check "${check.checkId}" names unknown phaseId "${check.phaseId}"`)
   }
+  problems.push(...validateBreakers(payload))
   problems.push(...validateDefaults(payload.defaults))
+  return problems
+}
+
+/** Breaker-shape validation: every declared fuse key is explicit, unique, and referenced. */
+function validateBreakers(payload: RecipePayload): string[] {
+  const problems: string[] = []
+  const breakerKeys = new Set<string>()
+  const checkBreakerRefs = new Set<string>()
+  for (const breaker of payload.breakers ?? []) {
+    if (typeof breaker.key !== 'string' || breaker.key.trim() === '') {
+      problems.push('breaker key must be a non-blank string')
+      continue
+    }
+    if (breakerKeys.has(breaker.key)) problems.push(`duplicate breaker key "${breaker.key}"`)
+    breakerKeys.add(breaker.key)
+    if (!Number.isSafeInteger(breaker.maxConsecutiveRepairs) || breaker.maxConsecutiveRepairs < 1) {
+      problems.push(`breaker "${breaker.key}" maxConsecutiveRepairs must be a positive safe integer`)
+    }
+  }
+  for (const check of payload.gateChecks) {
+    if (check.circuitBreaker !== undefined) checkBreakerRefs.add(check.circuitBreaker)
+  }
+  for (const key of breakerKeys) {
+    if (!checkBreakerRefs.has(key)) problems.push(`breaker key "${key}" names no check circuitBreaker`)
+  }
   return problems
 }
 

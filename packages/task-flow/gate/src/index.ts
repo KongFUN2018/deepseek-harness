@@ -11,6 +11,7 @@ import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import { AttentionItemId } from '@deepseek-ai/dsh-attention'
 import '@deepseek-ai/dsh-attention'
+import type { ReviewPolicyService } from '@deepseek-ai/dsh-review-policy'
 import '@deepseek-ai/dsh-recipe'
 import '@deepseek-ai/dsh-task'
 import type { PhaseRunRecord } from '@deepseek-ai/dsh-task/types'
@@ -84,13 +85,18 @@ export class GateService extends Service {
         checkId: check.checkId,
         options: check.humanAction,
       }, FACT_ACTOR, `gate/create-item:${phaseRunId}:${check.checkId}`))
-      const markPromise = this.ctx.tasks.markPhaseAwaitingDecision(phaseRunId, {
+      // The trusted tier defers a B-only phase: items still open as
+      // countersignature vouchers, but the run settles by its A checks.
+      const reviewPolicy: ReviewPolicyService | undefined = this.ctx.get('reviewPolicy')
+      const defers = complexChecks.every(check => check.kind === 'B')
+        && reviewPolicy?.defersBatchConfirm(String(phaseRun.taskId)) === true
+      const markPromise = defers ? undefined : this.ctx.tasks.markPhaseAwaitingDecision(phaseRunId, {
         actor: FACT_ACTOR,
         reason: 'complex gate check awaits a decision',
         expectedRevision: phaseRun.revision,
         idempotencyKey: `gate/await-decision:${phaseRunId}`,
       })
-      await Promise.all([...itemPromises, markPromise])
+      await Promise.all(markPromise === undefined ? itemPromises : [...itemPromises, markPromise])
     } catch {
       // A concurrent transition or an unregistered recipe means another path
       // already owns this decision; the resume round re-enters this listener.
