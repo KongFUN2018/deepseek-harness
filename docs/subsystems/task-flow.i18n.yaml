@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/task-flow.md
-task-flow.md: 238745c8448b0eeb04bf99976fe4cb12a8eb6f91
-task-flow.zh.md: aeb4c74454d9e6e3c77f2e23a5d4e90511b8401f
+task-flow.md: 1f20ee041bfce9d4699cfc8c1483cedfad3a1a16
+task-flow.zh.md: e892cd1c9ab264d03529e4469e28316953b5f614

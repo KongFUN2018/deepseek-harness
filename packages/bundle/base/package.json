@@ -60,6 +60,7 @@
     "@deepseek-ai/dsh-review-policy": "workspace:^",
     "@deepseek-ai/dsh-digest": "workspace:^",
     "@deepseek-ai/dsh-metrics": "workspace:^",
+    "@deepseek-ai/dsh-tool-task-create": "workspace:^",
     "@deepseek-ai/dsh-workbench-host": "workspace:^",
     "@deepseek-ai/dsh-workbench-host-stream": "workspace:^",
     "@deepseek-ai/dsh-recipe": "workspace:^",

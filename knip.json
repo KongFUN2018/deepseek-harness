@@ -792,6 +792,15 @@
         "tests/**/*.ts"
       ]
     },
+    "packages/task-flow/tool-task-create": {
+      "entry": [
+        "tests/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
+      ]
+    },
     "packages/task-flow/rewind": {
       "entry": [
         "tests/**/*.spec.ts"

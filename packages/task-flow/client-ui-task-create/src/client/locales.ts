@@ -2,6 +2,7 @@
 
 export const NS = 'uiTaskCreate' as const
 
+/** Dictionary keys the create wizard registers. */
 export type UiTaskCreateKey =
   | 'title'
   | 'column.recipe'
@@ -19,6 +20,7 @@ export type UiTaskCreateKey =
   | 'create'
   | 'cancel'
 
+/** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh: Record<UiTaskCreateKey, string> = {
   'title': '新建任务 · 选择处理模板',
   'column.recipe': '1 · 任务类型（Recipe）',
@@ -37,6 +39,7 @@ export const zh: Record<UiTaskCreateKey, string> = {
   'cancel': '取消',
 }
 
+/** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<UiTaskCreateKey, string> = {
   'title': 'New task · choose a recipe',
   'column.recipe': '1 · Recipe',

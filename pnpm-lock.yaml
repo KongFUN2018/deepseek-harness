@@ -1298,6 +1298,9 @@ importers:
       '@deepseek-ai/dsh-tool-subagent-report':
         specifier: workspace:^
         version: link:../../subagent/tool-subagent-report
+      '@deepseek-ai/dsh-tool-task-create':
+        specifier: workspace:^
+        version: link:../../task-flow/tool-task-create
       '@deepseek-ai/dsh-tool-todo':
         specifier: workspace:^
         version: link:../../todo/tool-todo
@@ -7907,6 +7910,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-workbench-drawer':
         specifier: workspace:^
         version: link:../client-ui-workbench-drawer
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
       '@deepseek-ai/dsh-recipe':
         specifier: workspace:^
         version: link:../recipe
@@ -8445,6 +8451,37 @@ importers:
       '@deepseek-ai/dsh-workbench-journal':
         specifier: workspace:^
         version: link:../workbench-journal
+
+  packages/task-flow/tool-task-create:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:^
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-recipe':
+        specifier: workspace:^
+        version: link:../recipe
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: workspace:^
+        version: link:../../core/system-prompt
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:^
+        version: link:../../core/tools
 
   packages/task-flow/workbench-host:
     dependencies:

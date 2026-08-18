@@ -227,6 +227,13 @@ Deliverable-local service: the M2 deliverable domain behind the M1 service key a
 @Remote('listCurrentInputs') listCurrentInputs(phaseRunId: string): DeliverableVersion[]
 
 /**
+ * List every deliverable version in registration order. The metrics
+ * service filters current/valid products from this; no aggregation here.
+ * @returns all stored versions.
+ */
+@Remote('listVersions') listVersions(): DeliverableVersion[]
+
+/**
  * Invalidate everything downstream of the named roots: each root and its
  * transitive consumers over `dependsOn` edges transition to `stale`;
  * already-stale subgraphs are skipped, and chain lineage alone is not an
@@ -285,6 +292,23 @@ getImpactSnapshot(snapshotId: string): ImpactSnapshot | undefined
 ```
 
 Source: [`packages/task-flow/deliverable-local/src/index.ts:78`](../../packages/task-flow/deliverable-local/src/index.ts)
+
+<a id="ctxdigest--digestservice"></a>
+
+### `ctx.digest` — `DigestService`
+
+The digest service: one read-only Remote per task.
+
+```ts cordis-catalog
+/**
+ * Derive one task's digest from the journal and the entity projections.
+ * @param taskId - the task to digest.
+ * @returns the full digest projection.
+ */
+@Remote('digest') async digest(taskId: string): Promise<TaskDigest>
+```
+
+Source: [`packages/task-flow/digest/src/index.ts:38`](../../packages/task-flow/digest/src/index.ts)
 
 <a id="ctxeditlock--editlockservice"></a>
 
@@ -363,6 +387,29 @@ Impact-propagation service: composes the frozen task commands over one snapshot;
 ```
 
 Source: [`packages/task-flow/impact-propagation/src/index.ts:32`](../../packages/task-flow/impact-propagation/src/index.ts)
+
+<a id="ctxmetrics--metricsservice"></a>
+
+### `ctx.metrics` — `MetricsService`
+
+The metrics service: read-only KPI and per-task measures.
+
+```ts cordis-catalog
+/**
+ * Fold the whole-workbench KPI projection.
+ * @returns the KPI counts, throughput buckets, and gate pass rates.
+ */
+@Remote('metrics') async metrics(): Promise<WorkbenchMetrics>
+
+/**
+ * Fold one task's measures.
+ * @param taskId - the task to measure.
+ * @returns the per-task measures.
+ */
+@Remote('taskMetrics') async taskMetrics(taskId: string): Promise<TaskMetrics>
+```
+
+Source: [`packages/task-flow/metrics/src/index.ts:39`](../../packages/task-flow/metrics/src/index.ts)
 
 <a id="ctxrecipeengine--recipeenginecore"></a>
 
@@ -467,6 +514,13 @@ Immutable recipe revision registry.
  * @returns identity list ordered by registration.
  */
 @Remote('list') list(): RecipeIdentity[]
+
+/**
+ * Every recipe's latest revision with its full payload, for the task-creation
+ * wizard's linked phase preview. One read per recipe, newest revision wins.
+ * @returns latest revisions ordered by registration.
+ */
+@Remote('listDetails') listDetails(): RecipeRevision[]
 ```
 
 Source: [`packages/task-flow/recipe/src/index.ts:133`](../../packages/task-flow/recipe/src/index.ts)
@@ -948,7 +1002,7 @@ One stored gate-check verdict; the breaker counter (M5 review-policy) observes t
 'gate-check/recorded'(result: GateCheckResult): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:225`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:228`](../../packages/task-flow/task/src/types.ts)
 
 <a id="phase-run-events"></a>
 
@@ -969,7 +1023,7 @@ Committed phase-run projection change.
 'phase-run/updated'(phaseRun: PhaseRunRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:217`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:220`](../../packages/task-flow/task/src/types.ts)
 
 <a id="task-events"></a>
 
@@ -991,7 +1045,7 @@ Committed task projection change; forwarded to the workbench UI and droppable �
 'task/updated'(task: TaskRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:205`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:208`](../../packages/task-flow/task/src/types.ts)
 
 <a id="task-run-events"></a>
 
@@ -1012,5 +1066,5 @@ Committed task-run projection change.
 'task-run/updated'(run: TaskRunRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:211`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:214`](../../packages/task-flow/task/src/types.ts)
 <!-- END GENERATED cordis-surface -->

@@ -653,6 +653,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the current input versions.',
       },
       {
+        signature: '@Remote(\'listVersions\') listVersions(): DeliverableVersion[]',
+        description: 'List every deliverable version in registration order. The metrics service filters current/valid products from this; no aggregation here.',
+        parameters: [],
+        returns: 'all stored versions.',
+      },
+      {
         signature: '@Remote(\'invalidateDownstream\') invalidateDownstream(rootVersionIds: string[]): Promise<ImpactSnapshot>',
         description: 'Invalidate everything downstream of the named roots: each root and its transitive consumers over `dependsOn` edges transition to `stale`; already-stale subgraphs are skipped, and chain lineage alone is not an impact edge — an upstream edit\'s own successor survives. The closure is persisted as an `ImpactSnapshot` covering the newly staled versions grouped per deliverable, the phase runs whose registered inputs lost currency, and the recorded gate verdicts those runs\' submissions produced.',
         parameters: [{ name: 'rootVersionIds', description: 'raw version ids whose downstream loses currency.' }],
@@ -685,6 +691,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read one persisted impact snapshot by identity; `undefined` when absent. Host-side read for impact consumers and replay.',
         parameters: [{ name: 'snapshotId', description: 'raw snapshot id.' }],
         returns: 'the stored snapshot, or `undefined`.',
+      },
+    ],
+  },
+  {
+    key: 'digest',
+    summary: 'The digest service: one read-only Remote per task.',
+    description: 'The digest service: one read-only Remote per task.',
+    methods: [
+      {
+        signature: '@Remote(\'digest\') async digest(taskId: string): Promise<TaskDigest>',
+        description: 'Derive one task\'s digest from the journal and the entity projections.',
+        parameters: [{ name: 'taskId', description: 'the task to digest.' }],
+        returns: 'the full digest projection.',
       },
     ],
   },
@@ -1120,6 +1139,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'metrics',
+    summary: 'The metrics service: read-only KPI and per-task measures.',
+    description: 'The metrics service: read-only KPI and per-task measures.',
+    methods: [
+      {
+        signature: '@Remote(\'metrics\') async metrics(): Promise<WorkbenchMetrics>',
+        description: 'Fold the whole-workbench KPI projection.',
+        parameters: [],
+        returns: 'the KPI counts, throughput buckets, and gate pass rates.',
+      },
+      {
+        signature: '@Remote(\'taskMetrics\') async taskMetrics(taskId: string): Promise<TaskMetrics>',
+        description: 'Fold one task\'s measures.',
+        parameters: [{ name: 'taskId', description: 'the task to measure.' }],
+        returns: 'the per-task measures.',
+      },
+    ],
+  },
+  {
     key: 'permissionPresets',
     summary: 'Owns the deployment\'s permission presets and their write path.',
     description: 'Owns the deployment\'s permission presets and their write path. Requires a confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are reported as CUSTOM_PRESET, not an error.',
@@ -1252,6 +1290,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Every registered identity, for registry inspection.',
         parameters: [],
         returns: 'identity list ordered by registration.',
+      },
+      {
+        signature: '@Remote(\'listDetails\') listDetails(): RecipeRevision[]',
+        description: 'Every recipe\'s latest revision with its full payload, for the task-creation wizard\'s linked phase preview. One read per recipe, newest revision wins.',
+        parameters: [],
+        returns: 'latest revisions ordered by registration.',
       },
     ],
   },
@@ -3727,6 +3771,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface DiffResultView {\n    card: \'diff\';\n    title?: string;\n    diffs: FileDiff[];\n}',
   },
   {
+    name: 'DigestDecision',
+    declaration: 'export interface DigestDecision {\n    readonly decisionKind: string;\n    readonly outcome?: string;\n    readonly resolvedAt?: number;\n}',
+  },
+  {
+    name: 'DigestDeliverableState',
+    declaration: 'export interface DigestDeliverableState {\n    readonly deliverableId: string;\n    readonly currentVersionId?: string;\n    readonly state: string;\n    readonly versionCount: number;\n}',
+  },
+  {
+    name: 'DigestPhaseSummary',
+    declaration: 'export interface DigestPhaseSummary {\n    readonly phaseId: string;\n    readonly state: string;\n    readonly attemptCount: number;\n    readonly passedAt?: number;\n    readonly failedAt?: number;\n}',
+  },
+  {
+    name: 'DigestRunBranch',
+    declaration: 'export interface DigestRunBranch {\n    readonly runId: string;\n    readonly parentRunId?: string;\n    readonly createdAt: number;\n    readonly supersededAt?: number;\n}',
+  },
+  {
+    name: 'DigestTimelineEntry',
+    declaration: 'export interface DigestTimelineEntry {\n    readonly seq: number;\n    readonly kind: string;\n    readonly occurredAt: number;\n    readonly actor: string;\n    readonly summary: string;\n}',
+  },
+  {
     name: 'DirectoryPickerBrowseCapability',
     declaration: 'export interface DirectoryPickerBrowseCapability {\n    kind: \'browse\';\n    list(path?: string, signal?: AbortSignal): Promise<DirectoryListing>;\n    createDirectory(path: string, name: string): Promise<string>;\n}',
   },
@@ -3900,7 +3964,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'GateCheckResult',
-    declaration: 'export interface GateCheckResult {\n    readonly submissionId: SubmissionId;\n    readonly checkId: string;\n    readonly passed: boolean;\n    readonly detail?: string;\n    readonly recordedAt: number;\n    readonly stale?: boolean;\n    readonly uncoveredScope?: readonly string[];\n    readonly evidenceRefs?: readonly string[];\n}',
+    declaration: 'export interface GateCheckResult {\n    readonly submissionId: SubmissionId;\n    readonly checkId: string;\n    readonly passed: boolean;\n    readonly kind?: \'A\' | \'B\' | \'C\';\n    readonly detail?: string;\n    readonly recordedAt: number;\n    readonly stale?: boolean;\n    readonly uncoveredScope?: readonly string[];\n    readonly evidenceRefs?: readonly string[];\n}',
+  },
+  {
+    name: 'GatePassRate',
+    declaration: 'export interface GatePassRate {\n    readonly a: number;\n    readonly b: number;\n    readonly c: number;\n}',
   },
   {
     name: 'GenerateOptions',
@@ -4357,6 +4425,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PhaseAssignment',
     declaration: 'export interface PhaseAssignment {\n    readonly taskId: TaskId;\n    readonly taskRunId: TaskRunId;\n    readonly phaseRunId: PhaseRunId;\n    readonly pinned: RecipeRevision;\n    readonly phase: RecipePhaseSpec;\n    readonly gateChecks: readonly RecipeGateCheckSpec[];\n    readonly attempt: number;\n    readonly submissionId: SubmissionId;\n    readonly agent?: Agent;\n}',
+  },
+  {
+    name: 'PhaseDuration',
+    declaration: 'export interface PhaseDuration {\n    readonly phaseId: string;\n    readonly startedAt?: number;\n    readonly passedAt?: number;\n    readonly durationMs?: number;\n}',
   },
   {
     name: 'PhaseExecutor',
@@ -5223,8 +5295,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
   },
   {
+    name: 'TaskDigest',
+    declaration: 'export interface TaskDigest {\n    readonly taskId: TaskId;\n    readonly state: string;\n    readonly revision: number;\n    readonly runs: readonly DigestRunBranch[];\n    readonly timeline: readonly DigestTimelineEntry[];\n    readonly phaseSummaries: readonly DigestPhaseSummary[];\n    readonly decisionHistory: readonly DigestDecision[];\n    readonly deliverableStates: readonly DigestDeliverableState[];\n}',
+  },
+  {
     name: 'TaskId',
     declaration: 'export type TaskId = Branded<\'TaskId\'>;',
+  },
+  {
+    name: 'TaskMetrics',
+    declaration: 'export interface TaskMetrics {\n    readonly taskId: string;\n    readonly phaseDurations: readonly PhaseDuration[];\n    readonly rerunCount: number;\n    readonly decisionCount: number;\n    readonly budgetUsed?: {\n        readonly tokens: number;\n        readonly durationMs: number;\n        readonly reruns: number;\n    };\n}',
   },
   {
     name: 'TaskMutationContext',
@@ -5325,6 +5405,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TerminalWaitReason',
     declaration: 'export type TerminalWaitReason = \'stdin_read\' | \'inferred_idle\' | \'timeout\' | \'session_exit\';',
+  },
+  {
+    name: 'ThroughputDay',
+    declaration: 'export interface ThroughputDay {\n    readonly day: string;\n    readonly completedPhases: number;\n}',
   },
   {
     name: 'TodoItem',
@@ -5613,6 +5697,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkbenchItemId',
     declaration: 'export type WorkbenchItemId = Branded<\'WorkbenchItemId\'>;',
+  },
+  {
+    name: 'WorkbenchMetrics',
+    declaration: 'export interface WorkbenchMetrics {\n    readonly live: number;\n    readonly gate: number;\n    readonly ask: number;\n    readonly asset: number;\n    readonly throughput: readonly ThroughputDay[];\n    readonly gatePassRate: GatePassRate;\n}',
   },
   {
     name: 'WorkbenchSnapshot',

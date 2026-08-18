@@ -341,6 +341,11 @@
     - id: metrics
       name: '@deepseek-ai/dsh-metrics'
 
+    # Task-flow create tool: the task_create model tool turning explicit
+    # create requests into confirmation proposals.
+    - id: task-create-tool
+      name: '@deepseek-ai/dsh-tool-task-create'
+
     # Task-flow durable task provider: implements the task storage hooks over
     # the storage stack and appends journal facts as commit points.
     - id: task-local

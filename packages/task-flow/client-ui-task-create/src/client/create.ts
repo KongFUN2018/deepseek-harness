@@ -32,6 +32,7 @@ function nextIdempotencyKey(recipeId: string): string {
  * The create panel's state owner. Created once per plugin fiber in apply.
  */
 export class TaskCreateController {
+  /** The wizard's snapshot source; the recipe catalogue plus load state. */
   readonly store: SnapshotStore<CreateState>
 
   private readonly ctx: ClientContext
@@ -52,7 +53,14 @@ export class TaskCreateController {
     this.store.set({ status: 'ready', recipes: result.value, error: undefined })
   }
 
-  /** Create one task from the chosen recipe; the caller owns the goal text. */
+  /**
+   * Create one task from the chosen recipe.
+   * @param recipeId - the chosen recipe id, already in the catalogue.
+   * @param workspaceId - the owning workspace.
+   * @param actor - the creating actor.
+   * @param goal - goal text; carried by the caller, not persisted here.
+   * @returns the created task id.
+   */
   async create(recipeId: string, workspaceId: string, actor: string, goal: string): Promise<string> {
     void goal
     const recipe = this.store.getSnapshot().recipes.find(item => item.recipeId === recipeId)

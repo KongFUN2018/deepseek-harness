@@ -1721,6 +1721,32 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     source: 'packages/extensions/ui-cordis/src/client/slots.ts:31',
   },
   {
+    key: 'workbench.drawer.create',
+    kind: 'single',
+    scope: 'root',
+    summary: 'The task-creation tab body of the workbench drawer.',
+    doc: 'The task-creation tab body of the workbench drawer. Declared by the\ndrawer shell\'s `shell.overlay` entry; the create package registers the\nthree-column new-task wizard here.',
+    registerOptions: [],
+    ownerProps: [
+      '/** Owner share of the task-list seat: navigation into the drawer\'s other tabs. */\nexport interface DrawerTasksOwnerProps {\n  /** Open one task\'s detail view: switches the drawer to the detail tab. */\n  openDetail: (taskId: string) => void\n  /** Switch the drawer to the attention-inbox tab (KPI GATE/ASK drill-down). */\n  openInbox: () => void\n  /** Switch the drawer to the task-creation wizard tab. */\n  openCreate: () => void\n}',
+    ],
+    ownerPropsReferences: [],
+    standardProps: [
+      'useSessions: SnapshotSelectorHook<SessionListState>',
+      'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
+    ],
+    keyDomain: '',
+    hookContext: '',
+    slotInject: '',
+    declaredBy: 'an entry in \'shell.overlay\' (client-ui-workbench-drawer), so it exists while that entry is mounted',
+    occupants: [
+      'client-ui-task-create TaskCreateAction',
+    ],
+    replaceRisk: 'shadows-shipped-ui',
+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'workbench.drawer.create\', () => ctx.slots.register(\n      { name: \'workbench.drawer.create\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+    source: 'packages/task-flow/client-ui-workbench-drawer/src/client/slots.ts:33',
+  },
+  {
     key: 'workbench.drawer.detail',
     kind: 'single',
     scope: 'root',
@@ -1778,7 +1804,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     doc: 'The task-list tab body of the workbench drawer. Declared by the drawer\nshell\'s `shell.overlay` entry; the task board package registers the\ncross-session task list here.',
     registerOptions: [],
     ownerProps: [
-      '/** Owner share of the task-list seat: navigation into the drawer\'s other tabs. */\nexport interface DrawerTasksOwnerProps {\n  /** Open one task\'s detail view: switches the drawer to the detail tab. */\n  openDetail: (taskId: string) => void\n  /** Switch the drawer to the attention-inbox tab (KPI GATE/ASK drill-down). */\n  openInbox: () => void\n}',
+      '/** Owner share of the task-list seat: navigation into the drawer\'s other tabs. */\nexport interface DrawerTasksOwnerProps {\n  /** Open one task\'s detail view: switches the drawer to the detail tab. */\n  openDetail: (taskId: string) => void\n  /** Switch the drawer to the attention-inbox tab (KPI GATE/ASK drill-down). */\n  openInbox: () => void\n  /** Switch the drawer to the task-creation wizard tab. */\n  openCreate: () => void\n}',
     ],
     ownerPropsReferences: [],
     standardProps: [

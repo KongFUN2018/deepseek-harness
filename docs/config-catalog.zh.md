@@ -3077,6 +3077,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-skill`（[`packages/client/ui-skill/src/index.ts`](../packages/client/ui-skill/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-subagent`（[`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-task-board`（[`packages/task-flow/client-ui-task-board/src/index.ts`](../packages/task-flow/client-ui-task-board/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-task-create`（[`packages/task-flow/client-ui-task-create/src/index.ts`](../packages/task-flow/client-ui-task-create/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-task-detail`（[`packages/task-flow/client-ui-task-detail/src/index.ts`](../packages/task-flow/client-ui-task-detail/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-theme`（[`packages/client/ui-theme/src/index.ts`](../packages/client/ui-theme/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-tool`（[`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts)）
@@ -3124,6 +3125,7 @@ export interface Config {
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — 需要 `tools`（[`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts)）
 - `@deepseek-ai/dsh-tool-cordis` — 需要 `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`（[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)）
 - `@deepseek-ai/dsh-tool-subagent-control` — 需要 `tools` · `subagents`（[`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts)）
+- `@deepseek-ai/dsh-tool-task-create` — 需要 `tools` · `recipes`（[`packages/task-flow/tool-task-create/src/index.ts`](../packages/task-flow/tool-task-create/src/index.ts)）
 - `@deepseek-ai/dsh-user-questions`（[`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts)）
 - `@deepseek-ai/dsh-workbench-host` — 需要 `attention` · `workbenchJournal`（[`packages/task-flow/workbench-host/src/index.ts`](../packages/task-flow/workbench-host/src/index.ts)）
 - `@deepseek-ai/dsh-workbench-host-stream` — 需要 `workbenchJournal`（[`packages/task-flow/workbench-host-stream/src/index.ts`](../packages/task-flow/workbench-host-stream/src/index.ts)）
