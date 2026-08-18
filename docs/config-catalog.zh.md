@@ -2262,6 +2262,24 @@ export interface Config {
 
 来源：[`packages/core/system-prompt/src/index.ts:186`](../packages/core/system-prompt/src/index.ts)
 
+<a id="deepseek-aidsh-task-local"></a>
+
+## `@deepseek-ai/dsh-task-local`
+
+需要：`storageDomain` · `workbenchJournal` · `deliverables` · `sessions`
+
+```ts config-catalog
+/** Task-local provider configuration. */
+interface Config {
+  /** How many recent source user-messages become seed points at most. */
+  readonly seedMaxPoints: number
+  /** Per-point character ceiling applied before journaling the seed. */
+  readonly seedMaxPointLength: number
+}
+```
+
+来源：[`packages/task-flow/task-local/src/index.ts:62`](../packages/task-flow/task-local/src/index.ts)
+
 <a id="deepseek-aidsh-terminal-bash"></a>
 
 ## `@deepseek-ai/dsh-terminal-bash`
@@ -3078,6 +3096,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-subagent`（[`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-task-board`（[`packages/task-flow/client-ui-task-board/src/index.ts`](../packages/task-flow/client-ui-task-board/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-task-create`（[`packages/task-flow/client-ui-task-create/src/index.ts`](../packages/task-flow/client-ui-task-create/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-task-create-confirm`（[`packages/task-flow/client-ui-task-create-confirm/src/index.ts`](../packages/task-flow/client-ui-task-create-confirm/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-task-detail`（[`packages/task-flow/client-ui-task-detail/src/index.ts`](../packages/task-flow/client-ui-task-detail/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-theme`（[`packages/client/ui-theme/src/index.ts`](../packages/client/ui-theme/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-tool`（[`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts)）
@@ -3119,7 +3138,6 @@ export interface Config {
 - `@deepseek-ai/dsh-storage`（[`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts)）
 - `@deepseek-ai/dsh-subagent`（[`packages/subagent/subagent/src/index.ts`](../packages/subagent/subagent/src/index.ts)）
 - `@deepseek-ai/dsh-subprocess-local`（[`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts)）
-- `@deepseek-ai/dsh-task-local` — 需要 `storageDomain` · `workbenchJournal` · `deliverables`（[`packages/task-flow/task-local/src/index.ts`](../packages/task-flow/task-local/src/index.ts)）
 - `@deepseek-ai/dsh-terminal`（[`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts)）
 - `@deepseek-ai/dsh-tool-ask-user` — 需要 `tools` · `userInteraction`（[`packages/interaction/tool-ask-user/src/index.ts`](../packages/interaction/tool-ask-user/src/index.ts)）
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — 需要 `tools`（[`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts)）

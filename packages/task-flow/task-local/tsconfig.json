@@ -18,6 +18,12 @@
       "path": "../../../vendor/cordis"
     },
     {
+      "path": "../../core/session"
+    },
+    {
+      "path": "../../llm/llm"
+    },
+    {
       "path": "../deliverable-local"
     },
     {

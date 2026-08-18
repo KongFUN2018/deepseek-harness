@@ -157,6 +157,32 @@ export interface GateCheckResult {
   readonly evidenceRefs?: readonly string[]
 }
 
+/** One content-only discussion point carried as seed into a phase-1 session. */
+export interface TaskSeedPoint {
+  /** The seed text (truncated at the provider's point-length ceiling). */
+  readonly text: string
+}
+
+/** Durable seed payload journaled at confirm time; the engine appends it to the first-phase session. */
+export interface TaskSeedContent {
+  /** The caller's goal summary; appended as the leading seed message. */
+  readonly goal: string
+  /** The source session whose recent discussion was read; a normal conversation, never broken by creation. */
+  readonly sourceSessionId: string
+  /** Content-only discussion points (newest-last); empty when the caller declined session inheritance. */
+  readonly points: readonly TaskSeedPoint[]
+}
+
+/** Wire result of one confirmed task creation (entry B). */
+export interface TaskCreateConfirmResult {
+  /** The created (or idempotently returned) task, still in `planning`. */
+  readonly task: TaskRecord
+  /** False when the same confirm idempotency key replayed an existing task. */
+  readonly created: boolean
+  /** Number of seed points journaled onto the task (0 when inheritance was declined). */
+  readonly seedPoints: number
+}
+
 /** Provenance threaded into every durable provider write. */
 export interface WriteProvenance {
   /** Actor that caused the write; providers record it with the journal fact. */

@@ -9,8 +9,11 @@
  * @module @deepseek-ai/dsh-task-local
  */
 
-import { Service } from '@deepseek-ai/cordis'
-import { TaskError, TaskHandle } from '@deepseek-ai/dsh-task'
+import { Context, Service } from '@deepseek-ai/cordis'
+import { z } from 'zod'
+import { TaskError, TaskHandle, TASK_SEED_FACT_KIND } from '@deepseek-ai/dsh-task'
+import type { SessionId } from '@deepseek-ai/dsh-session'
+import '@deepseek-ai/dsh-session'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { JournalPayload } from '@deepseek-ai/dsh-workbench-journal/types'
 import '@deepseek-ai/dsh-workbench-journal'
@@ -28,6 +31,8 @@ import type {
   TaskRecord,
   TaskRunId,
   TaskRunRecord,
+  TaskSeedContent,
+  TaskSeedPoint,
   WriteProvenance,
 } from '@deepseek-ai/dsh-task/types'
 
@@ -53,11 +58,29 @@ interface FactInput {
   readonly payload: unknown
 }
 
+/** Task-local provider configuration. */
+interface Config {
+  /** How many recent source user-messages become seed points at most. */
+  readonly seedMaxPoints: number
+  /** Per-point character ceiling applied before journaling the seed. */
+  readonly seedMaxPointLength: number
+}
+
 /** Durable TaskHandle provider over one storageDomain unit. */
 export class LocalTaskService extends TaskHandle {
-  /** The provider opens its domain, the journal, and the deliverable service. */
-  static inject = ['storageDomain', 'workbenchJournal', 'deliverables']
+  /** The provider opens its domain, the journal, the deliverable service, and the live session store. */
+  static inject = ['storageDomain', 'workbenchJournal', 'deliverables', 'sessions']
 
+  /** Session-inheritance tunables (entry B seed); deployment-variable via Config. */
+  static Config: z.ZodType<Config> = z.object({
+    /** How many recent source user-messages become seed points at most. */
+    seedMaxPoints: z.number().int().min(0).max(200).default(20),
+    /** Per-point character ceiling applied before journaling the seed. */
+    seedMaxPointLength: z.number().int().min(1).max(100000).default(4000),
+  }).default({ seedMaxPoints: 20, seedMaxPointLength: 4000 })
+
+  private readonly seedMaxPoints: number
+  private readonly seedMaxPointLength: number
   private tasks?: KvTable<string, TaskRecord>
   private runs?: KvTable<string, TaskRunRecord>
   private phaseRuns?: KvTable<string, PhaseRunRecord>
@@ -66,8 +89,15 @@ export class LocalTaskService extends TaskHandle {
 
   /**
    * @param ctx - Host context carrying the storage-domain facility, the
-   * workbench journal, and the deliverable service.
+   * workbench journal, the deliverable service, and the live session store.
+   * @param config - Optional session-inheritance tunables.
    */
+  constructor(ctx: Context, config: Config = { seedMaxPoints: 20, seedMaxPointLength: 4000 }) {
+    super(ctx)
+    this.seedMaxPoints = config.seedMaxPoints
+    this.seedMaxPointLength = config.seedMaxPointLength
+  }
+
   /** Open and own the task-local domain tables. */
   protected async [Service.init](): Promise<void> {
     const domain = await this.ctx.storageDomain.open(taskLocalDomainSpec)
@@ -260,6 +290,60 @@ export class LocalTaskService extends TaskHandle {
     for (const output of submission.outputVersions) {
       await this.ctx.deliverables.registerVersionDependencies(output.versionId, submission.inputVersions)
     }
+  }
+
+  /**
+   * Derive the session-inherited seed points from a live source conversation:
+   * the content of the most recent user messages (newest-last), each truncated
+   * at the point ceiling. Declined inheritance or an unknown source yields none.
+   */
+  protected override resolveSeedPoints(sourceSessionId: string, inheritSession: boolean): Promise<TaskSeedPoint[]> {
+    if (!inheritSession) return Promise.resolve([])
+    const session = this.ctx.sessions.get(sourceSessionId as SessionId)
+    if (session === undefined) return Promise.resolve([])
+    const recent = session.events.filter(event => event.type === 'user/message').slice(-this.seedMaxPoints)
+    const points: TaskSeedPoint[] = []
+    for (const event of recent) {
+      const text = event.data.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join('')
+        .trim()
+      if (text.length === 0) continue
+      points.push({ text: text.slice(0, this.seedMaxPointLength) })
+    }
+    return Promise.resolve(points)
+  }
+
+  /**
+   * Persist the confirmed-creation seed as one idempotent journal fact; a
+   * re-confirmed replay returns the originally stored points without a write.
+   */
+  protected override async persistConfirmSeed(
+    task: TaskRecord,
+    content: TaskSeedContent,
+    idempotencyKey: string,
+    actor: string,
+  ): Promise<TaskSeedPoint[]> {
+    const factKey = 'task/seed-created:' + idempotencyKey
+    const existing = this.ctx.workbenchJournal.replay(0).find(fact => fact.idempotencyKey === factKey)
+    if (existing !== undefined) {
+      return [...(existing.payload as unknown as TaskSeedContent).points]
+    }
+    const payload: JournalPayload = {
+      goal: content.goal,
+      sourceSessionId: content.sourceSessionId,
+      points: content.points.map(point => ({ text: point.text })),
+    }
+    await this.ctx.workbenchJournal.append({
+      taskId: task.taskId,
+      kind: TASK_SEED_FACT_KIND,
+      actor,
+      idempotencyKey: factKey,
+      entityRevision: task.revision,
+      payload,
+    })
+    return [...content.points]
   }
 
   /**

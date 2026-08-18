@@ -270,6 +270,10 @@
     - id: ui-task-create
       name: '@deepseek-ai/dsh-client-ui-task-create'
 
+    # Task-creation confirmation card: the keyed toolview for task_create.
+    - id: ui-task-create-confirm
+      name: '@deepseek-ai/dsh-client-ui-task-create-confirm'
+
     # Model selection: the /model popupSelect + composer seat over session.models.
     - id: ui-model-selection
       name: '@deepseek-ai/dsh-client-ui-model-selection'

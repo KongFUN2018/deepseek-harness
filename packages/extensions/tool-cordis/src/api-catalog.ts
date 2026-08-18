@@ -2139,6 +2139,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the new task in `planning`.',
       },
       {
+        signature: '@Remote(\'confirmCreateTask\') async confirmCreateTask( recipeId: string, goal: string, inheritSession: boolean, idempotencyKey: string, sourceSessionId: string, workspaceId: string, actor: string, ): Promise<TaskCreateConfirmResult>',
+        description: 'Confirm a session-initiated task creation (entry B): create the task idempotently, derive the inherited discussion seed, and persist it durably so the engine can append it to the first-phase session when it opens.',
+        parameters: [{ name: 'recipeId', description: 'the inferred recipe id.' }, { name: 'goal', description: 'the caller\'s goal summary; the leading seed message.' }, { name: 'inheritSession', description: 'whether to carry recent source-session discussion points.' }, { name: 'idempotencyKey', description: 'the caller-safe replay key, reused from the propose step.' }, { name: 'sourceSessionId', description: 'the original conversation read for the seed.' }, { name: 'workspaceId', description: 'the owning workspace (entry B defaults it to \'default\').' }, { name: 'actor', description: 'the confirming actor.' }],
+        returns: 'the created task and its seed summary.',
+      },
+      {
         signature: '@Remote(\'startTask\') async startTask(taskId: string, mutation: TaskMutationContext): Promise<TaskRecord>',
         description: 'Move one task from `planning` into `running`.',
         parameters: [{ name: 'taskId', description: 'the task to start.' }, { name: 'mutation', description: 'actor, reason, expected revision, idempotency key.' }],
@@ -5293,6 +5299,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaskCreateConfirmResult',
+    declaration: 'export interface TaskCreateConfirmResult {\n    readonly task: TaskRecord;\n    readonly created: boolean;\n    readonly seedPoints: number;\n}',
   },
   {
     name: 'TaskDigest',

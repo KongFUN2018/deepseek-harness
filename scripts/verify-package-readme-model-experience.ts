@@ -69,6 +69,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/api/remotes': { kind: 'none', reason: 'The Remote BFF selects business methods and identity policy; selected services own any model-visible effect.' },
   'packages/task-flow/digest': { kind: 'none', reason: 'Journal-derived host read projection for the workbench UI; registers nothing model-facing.' },
   'packages/task-flow/client-ui-task-create': { kind: 'none', reason: 'Browser-side task-creation wizard; registers nothing model-facing.' },
+  'packages/task-flow/client-ui-task-create-confirm': { kind: 'none', reason: 'Browser-side task-creation confirmation card; registers nothing model-facing.' },
   'packages/task-flow/tool-task-create': { kind: 'indirect', reason: 'The tool proposes a task from the model-supplied recipe and goal; creation and any rendered context stay in the confirming surface.' },
   'packages/task-flow/metrics': { kind: 'none', reason: 'Journal/entity-derived host read aggregation for the workbench UI; registers nothing model-facing.' },
   'packages/client/runtime': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },

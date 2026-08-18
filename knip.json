@@ -847,6 +847,10 @@
         "tests/**/*.tsx"
       ]
     },
+    "packages/task-flow/client-ui-task-create-confirm": {
+      "entry": [ "tests/**/*.spec.tsx" ],
+      "project": [ "src/**/*.ts", "src/**/*.tsx", "tests/**/*.tsx" ]
+    },
     "packages/task-flow/client-ui-task-create": {
       "entry": [
         "tests/**/*.spec.tsx"

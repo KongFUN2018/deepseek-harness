@@ -31,13 +31,18 @@ import type {
   PhaseRunRecord,
   PhaseSubmission,
   SubmissionEnvironmentFacts,
+  TaskCreateConfirmResult,
   TaskMutationContext,
   TaskRecord,
   TaskRunRecord,
+  TaskSeedContent,
+  TaskSeedPoint,
   WriteProvenance,
 } from './types.ts'
 
 export type * from './types.ts'
+/** The journal fact kind carrying a task's confirmed-creation seed (see `TaskSeedContent`). */
+export const TASK_SEED_FACT_KIND = 'task/seed-created'
 export { TaskId, TaskRunId, PhaseRunId, SubmissionId, DeliverableId, DeliverableVersionId } from './runtime.ts'
 export { TaskError } from './types.ts'
 export {
@@ -175,41 +180,121 @@ export abstract class TaskHandle extends TypertRemoteService {
       actor: this.resolveText(actor, 'actor'),
       idempotencyKey: this.resolveText(idempotencyKey, 'idempotencyKey'),
     }
+    return this.serialized(() => this.createTaskNow(recipeKey, workspaceId.trim(), provenance))
+  }
+
+  /** Create one task pinned to the latest registered recipe revision; the serial write chain owns the commit. */
+  private async createTaskNow(recipeKey: string, workspaceId: string, provenance: WriteProvenance): Promise<TaskRecord> {
+    const existing = await this.loadTaskByIdempotencyKey(provenance.idempotencyKey)
+    if (existing !== undefined) {
+      if (existing.workspaceId === workspaceId && existing.pinnedRecipe.recipeId === recipeKey) return existing
+      throw new TaskError('duplicate-idempotency', 'task idempotency key reused with a different payload')
+    }
+    const recipes = this.ctx.get('recipes') as RecipeRegistry
+    let latest
+    try {
+      latest = recipes.latest(recipeKey)
+    } catch (error) {
+      if (error instanceof RecipeError && error.code === 'not-found') {
+        throw new TaskError('not-found', `recipe "${recipeKey}" is not registered`)
+      }
+      throw error
+    }
+    if (latest === undefined) throw new TaskError('not-found', `recipe "${recipeKey}" is not registered`)
+    const task: TaskRecord = {
+      taskId: TaskIdValue(randomUUID()),
+      workspaceId,
+      pinnedRecipe: {
+        recipeId: latest.recipeId,
+        revision: latest.revision,
+        schemaVersion: latest.schemaVersion,
+        contentHash: latest.contentHash,
+      },
+      state: 'planning',
+      revision: 1,
+      idempotencyKey: provenance.idempotencyKey,
+      createdAt: Date.now(),
+    }
+    if (!await this.saveTask(task, provenance)) throw new TaskError('stale-revision', 'task insert raced')
+    this.emit('task/updated', task)
+    return task
+  }
+
+
+
+  /**
+   * Confirm a session-initiated task creation (entry B): create the task
+   * idempotently, derive the inherited discussion seed, and persist it durably so the
+   * engine can append it to the first-phase session when it opens.
+   * @param recipeId - the inferred recipe id.
+   * @param goal - the caller's goal summary; the leading seed message.
+   * @param inheritSession - whether to carry recent source-session discussion points.
+   * @param idempotencyKey - the caller-safe replay key, reused from the propose step.
+   * @param sourceSessionId - the original conversation read for the seed.
+   * @param workspaceId - the owning workspace (entry B defaults it to 'default').
+   * @param actor - the confirming actor.
+   * @returns the created task and its seed summary.
+   */
+  @Remote('confirmCreateTask')
+  async confirmCreateTask(
+    recipeId: string,
+    goal: string,
+    inheritSession: boolean,
+    idempotencyKey: string,
+    sourceSessionId: string,
+    workspaceId: string,
+    actor: string,
+  ): Promise<TaskCreateConfirmResult> {
+    const goalText = this.resolveText(goal, 'goal')
+    const sourceId = this.resolveText(sourceSessionId, 'sourceSessionId')
+    const key = this.resolveText(idempotencyKey, 'idempotencyKey')
+    const actorName = this.resolveText(actor, 'actor')
+    const workspace = this.resolveText(workspaceId, 'workspaceId')
+    if (typeof inheritSession !== 'boolean') {
+      throw new TaskError('invalid-argument', 'inheritSession must be a boolean')
+    }
     return this.serialized(async () => {
-      const existing = await this.loadTaskByIdempotencyKey(provenance.idempotencyKey)
-      if (existing !== undefined) {
-        if (existing.workspaceId === workspaceId.trim() && existing.pinnedRecipe.recipeId === recipeKey) return existing
-        throw new TaskError('duplicate-idempotency', 'task idempotency key reused with a different payload')
+      const prior = await this.loadTaskByIdempotencyKey(key)
+      const provenance: WriteProvenance = { actor: actorName, idempotencyKey: key }
+      const task = await this.createTaskNow(this.resolveText(recipeId, 'recipeId'), workspace, provenance)
+      const content: TaskSeedContent = {
+        goal: goalText,
+        sourceSessionId: sourceId,
+        points: await this.resolveSeedPoints(sourceId, inheritSession),
       }
-      const recipes = this.ctx.get('recipes') as RecipeRegistry
-      let latest
-      try {
-        latest = recipes.latest(recipeKey)
-      } catch (error) {
-        if (error instanceof RecipeError && error.code === 'not-found') {
-          throw new TaskError('not-found', `recipe "${recipeKey}" is not registered`)
-        }
-        throw error
-      }
-      if (latest === undefined) throw new TaskError('not-found', `recipe "${recipeKey}" is not registered`)
-      const task: TaskRecord = {
-        taskId: TaskIdValue(randomUUID()),
-        workspaceId: workspaceId.trim(),
-        pinnedRecipe: {
-          recipeId: latest.recipeId,
-          revision: latest.revision,
-          schemaVersion: latest.schemaVersion,
-          contentHash: latest.contentHash,
-        },
-        state: 'planning',
-        revision: 1,
-        idempotencyKey: provenance.idempotencyKey,
-        createdAt: Date.now(),
-      }
-      if (!await this.saveTask(task, provenance)) throw new TaskError('stale-revision', 'task insert raced')
-      this.emit('task/updated', task)
-      return task
+      const points = await this.persistConfirmSeed(task, content, key, actorName)
+      return { task, created: prior === undefined, seedPoints: points.length }
     })
+  }
+
+  /**
+   * Provider-side derivation of the session-inherited discussion points; the default
+   * carries none (no live source, or inheritance declined).
+   * @param sourceSessionId - the source conversation to read.
+   * @param inheritSession - whether the caller opted into session inheritance.
+   * @returns the content-only seed points, newest-last.
+   */
+  protected resolveSeedPoints(_sourceSessionId: string, _inheritSession: boolean): Promise<TaskSeedPoint[]> {
+    return Promise.resolve([])
+  }
+
+  /**
+   * Persist the confirmed-creation seed durably and return the durable points (the
+   * originally stored ones when an idempotent replay re-confirms). The default carries
+   * the seed in flight only, so a journal-less provider loses it.
+   * @param task - the created task.
+   * @param content - the seed payload to persist.
+   * @param idempotencyKey - the confirm replay key.
+   * @param actor - the confirming actor.
+   * @returns the durable seed points.
+   */
+  protected persistConfirmSeed(
+    _task: TaskRecord,
+    content: TaskSeedContent,
+    _idempotencyKey: string,
+    _actor: string,
+  ): Promise<TaskSeedPoint[]> {
+    return Promise.resolve([...content.points])
   }
 
   /**

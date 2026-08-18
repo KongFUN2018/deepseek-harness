@@ -27,6 +27,9 @@
       "path": "../../goal/goal"
     },
     {
+      "path": "../../llm/llm"
+    },
+    {
       "path": "../recipe"
     },
     {

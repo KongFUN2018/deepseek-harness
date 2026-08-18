@@ -84,6 +84,9 @@ export function apply(ctx: Context): void {
           + String(value.checks) + ' checks, inherit=' + String(value.inheritSession)
           + '). Creation awaits human confirmation.',
       }],
+      // The confirmation card reads this structured projection (resultView);
+      // the proposal is already canonical JSON, so the meta is the value itself.
+      presentationMeta: (_args, value) => value,
     },
     execute(args, _exec) {
       const input = args as TaskCreateInput

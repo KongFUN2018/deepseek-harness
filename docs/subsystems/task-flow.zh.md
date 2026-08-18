@@ -441,7 +441,7 @@ async trigger(taskId: TaskId): Promise<void>
 async recover(): Promise<void>
 ```
 
-Source: [`packages/task-flow/recipe-engine-core/src/index.ts:70`](../../packages/task-flow/recipe-engine-core/src/index.ts)
+Source: [`packages/task-flow/recipe-engine-core/src/index.ts:73`](../../packages/task-flow/recipe-engine-core/src/index.ts)
 
 <a id="ctxrecipemultiphase--recipemultiphaseservice"></a>
 
@@ -630,6 +630,21 @@ registerCompletionGuard(guard: (task: TaskRecord) => Promise<void>): () => void
  * @returns the new task in `planning`.
  */
 @Remote('createTask') async createTask(recipeId: string, workspaceId: string, actor: string, idempotencyKey: string): Promise<TaskRecord>
+
+/**
+ * Confirm a session-initiated task creation (entry B): create the task
+ * idempotently, derive the inherited discussion seed, and persist it durably so the
+ * engine can append it to the first-phase session when it opens.
+ * @param recipeId - the inferred recipe id.
+ * @param goal - the caller's goal summary; the leading seed message.
+ * @param inheritSession - whether to carry recent source-session discussion points.
+ * @param idempotencyKey - the caller-safe replay key, reused from the propose step.
+ * @param sourceSessionId - the original conversation read for the seed.
+ * @param workspaceId - the owning workspace (entry B defaults it to 'default').
+ * @param actor - the confirming actor.
+ * @returns the created task and its seed summary.
+ */
+@Remote('confirmCreateTask') async confirmCreateTask( recipeId: string, goal: string, inheritSession: boolean, idempotencyKey: string, sourceSessionId: string, workspaceId: string, actor: string, ): Promise<TaskCreateConfirmResult>
 
 /**
  * Move one task from `planning` into `running`.
@@ -928,7 +943,7 @@ registerCompletionGuard(guard: (task: TaskRecord) => Promise<void>): () => void
 @Remote('listGateResults') async listGateResults(submissionId: string): Promise<GateCheckResult[]>
 ```
 
-Source: [`packages/task-flow/task/src/index.ts:65`](../../packages/task-flow/task/src/index.ts)
+Source: [`packages/task-flow/task/src/index.ts:70`](../../packages/task-flow/task/src/index.ts)
 
 <a id="ctxworkbenchhoststream--workbenchhoststreamservice"></a>
 
@@ -1002,7 +1017,7 @@ One stored gate-check verdict; the breaker counter (M5 review-policy) observes t
 'gate-check/recorded'(result: GateCheckResult): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:228`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:254`](../../packages/task-flow/task/src/types.ts)
 
 <a id="phase-run-events"></a>
 
@@ -1023,7 +1038,7 @@ Committed phase-run projection change.
 'phase-run/updated'(phaseRun: PhaseRunRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:220`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:246`](../../packages/task-flow/task/src/types.ts)
 
 <a id="task-events"></a>
 
@@ -1045,7 +1060,7 @@ Committed task projection change; forwarded to the workbench UI and droppable â€
 'task/updated'(task: TaskRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:208`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:234`](../../packages/task-flow/task/src/types.ts)
 
 <a id="task-run-events"></a>
 
@@ -1066,5 +1081,5 @@ Committed task-run projection change.
 'task-run/updated'(run: TaskRunRecord): void
 ```
 
-Source: [`packages/task-flow/task/src/types.ts:214`](../../packages/task-flow/task/src/types.ts)
+Source: [`packages/task-flow/task/src/types.ts:240`](../../packages/task-flow/task/src/types.ts)
 <!-- END GENERATED cordis-surface -->

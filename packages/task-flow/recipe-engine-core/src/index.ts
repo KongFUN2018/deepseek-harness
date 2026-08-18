@@ -20,9 +20,12 @@ import type {
   RecipePhaseSpec,
   RecipeRevision,
 } from '@deepseek-ai/dsh-recipe/types'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
+import type { Session } from '@deepseek-ai/dsh-session'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
-import { SubmissionId as SubmissionIdValue } from '@deepseek-ai/dsh-task'
+import { SubmissionId as SubmissionIdValue, TASK_SEED_FACT_KIND } from '@deepseek-ai/dsh-task'
+import type { TaskSeedContent } from '@deepseek-ai/dsh-task/types'
 import type {
   PhaseRunRecord,
   PhaseRunState,
@@ -344,7 +347,7 @@ export class RecipeEngineCore extends Service {
     const executor = this.requireExecutor()
     const attempt = (binding?.attempt ?? 0) + 1
     const submissionId = this.submissionIdFor(phaseRun, attempt)
-    const session = await this.openSession(phaseRun, phase, attempt)
+    const session = await this.openSession(phaseRun, phase, attempt, pinned.payload.phases[0]?.phaseId === phase.phaseId)
     await this.ctx.tasks.recordPhaseSession(String(phaseRun.phaseRunId), session.sessionId, this.mutation(task.taskId, phaseRun.revision, 'record-session'))
     const next: PhaseSessionBinding = {
       phaseRunId: phaseRun.phaseRunId,
@@ -519,18 +522,47 @@ export class RecipeEngineCore extends Service {
    * is registered, otherwise record a synthetic session id so submissions
    * still name their source. The handle is disposed when the phase settles.
    */
-  private async openSession(phaseRun: PhaseRunRecord, phase: RecipePhaseSpec, attempt: number): Promise<PhaseSession> {
+  private async openSession(phaseRun: PhaseRunRecord, phase: RecipePhaseSpec, attempt: number, shouldSeed: boolean): Promise<PhaseSession> {
     const raw = String(phaseRun.phaseRunId)
     try {
       const handle = await this.ctx.agents.create({ sessionId: SessionId(`phase-${raw}-a${attempt}`) })
       this.ctx.goals.create(handle.agent, { objective: phase.goal })
       this.sessions.set(raw, handle)
+      if (shouldSeed) this.seedOpenedSessionIfVoid(handle.agent.session, phaseRun.taskId)
       return { handle, agent: handle.agent, sessionId: `phase-${raw}-a${attempt}` }
     } catch (error) {
       if (error instanceof Error && error.message.includes('no agent factory registered')) {
         return { sessionId: `phase-${raw}` }
       }
       throw error
+    }
+  }
+
+  /**
+   * Seed a freshly opened first-phase session with the task's confirmed
+   * creation context: the journaled task/seed-created goal followed by its
+   * inherited points, each as a user/message append. Runs at most once per
+   * session: a non-empty event log (reopened session or already seeded)
+   * skips, and a missing journal seed is a silent no-op.
+   */
+  private seedOpenedSessionIfVoid(session: Session, taskId: TaskId): void {
+    if (session.events.length > 0) return
+    const seed = [...this.ctx.workbenchJournal.replay(0)]
+      .filter(fact => fact.taskId === taskId && fact.kind === TASK_SEED_FACT_KIND)
+      .at(-1)
+    if (seed === undefined) return
+    const content = seed.payload as unknown as TaskSeedContent
+    if (content.goal.length > 0) {
+      session.append('user/message', createUserMessage({
+        content: [{ type: 'text', text: content.goal }],
+        source: { kind: 'user' },
+      }), { surfaceOp: 'append' })
+    }
+    for (const point of content.points) {
+      session.append('user/message', createUserMessage({
+        content: [{ type: 'text', text: point.text }],
+        source: { kind: 'user' },
+      }), { surfaceOp: 'append' })
     }
   }
 
