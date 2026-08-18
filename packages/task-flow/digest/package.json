@@ -61,5 +61,8 @@
     "@deepseek-ai/dsh-task": "workspace:^",
     "@deepseek-ai/dsh-typert-protocol": "workspace:^",
     "@deepseek-ai/dsh-workbench-journal": "workspace:^"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }

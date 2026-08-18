@@ -778,6 +778,9 @@
       "entry": [
         "tests/**/*.spec.ts"
       ],
+      "ignoreDependencies": [
+        "zod"
+      ],
       "project": [
         "src/**/*.ts",
         "tests/**/*.ts"
@@ -786,6 +789,9 @@
     "packages/task-flow/metrics": {
       "entry": [
         "tests/**/*.spec.ts"
+      ],
+      "ignoreDependencies": [
+        "zod"
       ],
       "project": [
         "src/**/*.ts",
