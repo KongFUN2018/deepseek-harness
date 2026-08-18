@@ -50,10 +50,6 @@
     "@deepseek-ai/dsh-recipe": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
     "@deepseek-ai/dsh-system-prompt": "workspace:^",
-    "@deepseek-ai/dsh-tools": "workspace:^",
-    "zod": "^4.4.3"
-  },
-  "dependencies": {
-    "zod": "^4.4.3"
+    "@deepseek-ai/dsh-tools": "workspace:^"
   }
 }
