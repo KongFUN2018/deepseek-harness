@@ -53,6 +53,7 @@ export function apply(ctx: ClientContext): void {
       'workbench.drawer.tasks': { kind: 'single', scope: 'root' },
       'workbench.drawer.inbox': { kind: 'single', scope: 'root' },
       'workbench.drawer.detail': { kind: 'single', scope: 'root' },
+      'workbench.drawer.create': { kind: 'single', scope: 'root' },
     },
     inject: () => ({
       hooks: { badge: badge.store },

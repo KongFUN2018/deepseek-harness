@@ -266,6 +266,10 @@
     - id: ui-task-detail
       name: '@deepseek-ai/dsh-client-ui-task-detail'
 
+    # Task-flow create: the drawer's create tab, the three-column new-task wizard.
+    - id: ui-task-create
+      name: '@deepseek-ai/dsh-client-ui-task-create'
+
     # Model selection: the /model popupSelect + composer seat over session.models.
     - id: ui-model-selection
       name: '@deepseek-ai/dsh-client-ui-model-selection'

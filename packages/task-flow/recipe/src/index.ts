@@ -223,6 +223,21 @@ export class RecipeRegistry extends TypertRemoteService {
   list(): RecipeIdentity[] {
     return [...this.revisions.values()].map(({ recipeId, revision }) => ({ recipeId, revision }))
   }
+
+  /**
+   * Every recipe's latest revision with its full payload, for the task-creation
+   * wizard's linked phase preview. One read per recipe, newest revision wins.
+   * @returns latest revisions ordered by registration.
+   */
+  @Remote('listDetails')
+  listDetails(): RecipeRevision[] {
+    const latest = new Map<string, RecipeRevision>()
+    for (const stored of this.revisions.values()) {
+      const known = latest.get(stored.recipeId)
+      if (known === undefined || stored.revision > known.revision) latest.set(stored.recipeId, stored)
+    }
+    return [...latest.values()]
+  }
 }
 
 export default RecipeRegistry

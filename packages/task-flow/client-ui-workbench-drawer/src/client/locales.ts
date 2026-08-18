@@ -12,6 +12,7 @@ export type WorkbenchDrawerKey =
   | 'trigger'
   | 'tab.tasks'
   | 'tab.inbox'
+  | 'tab.create'
   | 'tab.detail'
   | 'close'
   | 'resize'
@@ -25,6 +26,7 @@ export const zh = {
   'trigger': '任务流程',
   'tab.tasks': '任务',
   'tab.inbox': '收件箱',
+  'tab.create': '新建',
   'tab.detail': '详情',
   'close': '关闭',
   'resize': '拖动调整宽度',
@@ -39,6 +41,7 @@ export const en = {
   'trigger': 'Task Flow',
   'tab.tasks': 'Tasks',
   'tab.inbox': 'Inbox',
+  'tab.create': 'Create',
   'tab.detail': 'Detail',
   'close': 'Close',
   'resize': 'Drag to resize',

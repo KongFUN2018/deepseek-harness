@@ -8,10 +8,10 @@ import { NS } from './locales.ts'
 import css from './WorkbenchDrawer.module.css'
 
 /** The drawer's tab ids; each dispatches one declared content seat. */
-export type DrawerTab = 'tasks' | 'inbox' | 'detail'
+export type DrawerTab = 'tasks' | 'inbox' | 'detail' | 'create'
 
 /** Semantic drawer width per tab (px); user drag overrides within bounds. */
-const TAB_WIDTH: Record<DrawerTab, number> = { tasks: 600, inbox: 720, detail: 800 }
+const TAB_WIDTH: Record<DrawerTab, number> = { tasks: 600, inbox: 720, detail: 800, create: 640 }
 
 /** Lower and upper width bounds for the user-resized drawer (px). */
 const WIDTH_MIN = 480
@@ -33,7 +33,7 @@ export interface WorkbenchDrawerInjected {
 /** Full props for the floating trigger and the drawer shell. */
 export type WorkbenchDrawerProps =
   PropsRuntime<'shell.overlay'>
-  & PropsRenderSlots<'workbench.drawer.tasks' | 'workbench.drawer.inbox' | 'workbench.drawer.detail'>
+  & PropsRenderSlots<'workbench.drawer.tasks' | 'workbench.drawer.inbox' | 'workbench.drawer.detail' | 'workbench.drawer.create'>
   & PropsLocale<typeof NS>
   & InjectFace<WorkbenchDrawerInjected>
 
@@ -73,6 +73,11 @@ export function WorkbenchDrawer(props: WorkbenchDrawerProps) {
   /** Switch the drawer to the inbox tab (KPI GATE/ASK cards drill down here). */
   const openInbox = useCallback(() => {
     setTab('inbox')
+  }, [])
+
+  /** Switch the drawer to the task-creation wizard tab. */
+  const openCreate = useCallback(() => {
+    setTab('create')
   }, [])
 
   // Switching a tab returns to that tab's semantic width; a user drag
@@ -169,9 +174,10 @@ export function WorkbenchDrawer(props: WorkbenchDrawerProps) {
             ))}
           </div>
           <div className={css.body}>
-            {tab === 'tasks' && renderSlot('workbench.drawer.tasks', { openDetail, openInbox })}
+            {tab === 'tasks' && renderSlot('workbench.drawer.tasks', { openDetail, openInbox, openCreate })}
             {tab === 'inbox' && renderSlot('workbench.drawer.inbox', {})}
             {tab === 'detail' && renderSlot('workbench.drawer.detail', { taskId: detailTaskId })}
+            {tab === 'create' && renderSlot('workbench.drawer.create', { openDetail, openInbox, openCreate })}
           </div>
         </div>
       )}

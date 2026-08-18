@@ -63,8 +63,10 @@ function makeProps(state: TaskBoardState): {
   // unused by this component; stable no-op stubs satisfy the share contract.
   const unusedGlobal = { getSnapshot: () => ({}), subscribe: () => () => {} } as never
   const openInbox = vi.fn()
+  const openCreate = vi.fn()
   const composed: TaskBoardActionProps = {
     openInbox,
+    openCreate,
     openDetail,
     t,
     useBoard,

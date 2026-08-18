@@ -97,6 +97,7 @@
     { "path": "./packages/client/ui-settings-plugin-inventory" },
     { "path": "./packages/task-flow/client-ui-workbench-drawer" },
     { "path": "./packages/task-flow/client-ui-task-board" },
+    { "path": "./packages/task-flow/client-ui-task-create" },
     { "path": "./packages/task-flow/client-ui-attention-inbox" },
     { "path": "./packages/task-flow/client-ui-task-detail" },
     { "path": "./packages/client/locale" },

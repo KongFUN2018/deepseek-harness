@@ -25,6 +25,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * the per-task projection view here.
      */
     'workbench.drawer.detail': { kind: 'single'; scope: 'root'; owner: DrawerDetailOwnerProps }
+    /**
+     * The task-creation tab body of the workbench drawer. Declared by the
+     * drawer shell's `shell.overlay` entry; the create package registers the
+     * three-column new-task wizard here.
+     */
+    'workbench.drawer.create': { kind: 'single'; scope: 'root'; owner: DrawerTasksOwnerProps }
   }
 }
 
@@ -34,6 +40,8 @@ export interface DrawerTasksOwnerProps {
   openDetail: (taskId: string) => void
   /** Switch the drawer to the attention-inbox tab (KPI GATE/ASK drill-down). */
   openInbox: () => void
+  /** Switch the drawer to the task-creation wizard tab. */
+  openCreate: () => void
 }
 
 /** Owner share of the detail seat: the task whose projection to show. */
