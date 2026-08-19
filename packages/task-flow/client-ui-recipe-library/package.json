@@ -1,6 +1,6 @@
 {
-  "name": "@deepseek-ai/dsh-client-ui-workbench-drawer",
-  "description": "Web task-flow workbench drawer: single shell.overlay entry with a floating trigger and a right-side three-tab drawer seating the task-flow content panels",
+  "name": "@deepseek-ai/dsh-client-ui-recipe-library",
+  "description": "Web Recipe library: processing-template cards over the recipe Remote, routing a selection into the drawer create wizard",
   "version": "0.1.0-rc.5",
   "publishConfig": {
     "access": "public"
@@ -8,7 +8,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
-    "directory": "packages/task-flow/client-ui-workbench-drawer"
+    "directory": "packages/task-flow/client-ui-recipe-library"
   },
   "type": "module",
   "main": "lib/index.js",
@@ -35,7 +35,8 @@
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-api-remotes",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-layout"
+        "@deepseek-ai/dsh-client-ui-workbench-drawer",
+        "@deepseek-ai/dsh-client-ui-primitives"
       ],
       "platform": "web"
     }
@@ -54,22 +55,23 @@
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-api-remotes": "workspace:^",
     "@deepseek-ai/dsh-client-locale": "workspace:^",
-    "@deepseek-ai/dsh-invariants": "workspace:^"
+    "@deepseek-ai/dsh-client-ui-workbench-drawer": "workspace:^",
+    "@deepseek-ai/dsh-invariants": "workspace:^",
+    "@deepseek-ai/dsh-recipe": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-api-remotes": "workspace:^",
     "@deepseek-ai/dsh-client-locale": "workspace:^",
     "@deepseek-ai/dsh-client-test-runtime": "workspace:^",
-    "@deepseek-ai/dsh-client-ui-layout": "workspace:^",
-    "@deepseek-ai/dsh-client-ui-sidebar": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-workbench-drawer": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
+    "@deepseek-ai/dsh-recipe": "workspace:^",
     "@deepseek-ai/dsh-typert-protocol": "workspace:^",
-    "@deepseek-ai/dsh-workbench-host": "workspace:^",
-    "@deepseek-ai/dsh-task": "workspace:^",
     "@testing-library/react": "^16.1.0",
-    "@types/react": "~18.3.1",
-    "react-dom": "^18.2.0"
+    "@types/react": "~18.3.12",
+    "react-dom": "^18.2.0",
+    "jsdom": "^26.0.0"
   },
   "files": [
     "lib/index.js",

@@ -26,6 +26,24 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'workbench.drawer.detail': { kind: 'single'; scope: 'root'; owner: DrawerDetailOwnerProps }
     /**
+     * The pure task-list tab body of the workbench drawer. Declared by the
+     * drawer shell's `shell.overlay` entry; a focused list view over the same
+     * task rows without the KPI/chart chrome (线稿「任务列表」).
+     */
+    'workbench.drawer.taskList': { kind: 'single'; scope: 'root'; owner: DrawerTasksOwnerProps }
+    /**
+     * The Recipe-library tab body of the workbench drawer. Declared by the
+     * drawer shell's `shell.overlay` entry; renders processing-template cards
+     * and routes selection into the wizard (线稿「Recipe 库」).
+     */
+    'workbench.drawer.recipeLibrary': { kind: 'single'; scope: 'root'; owner: DrawerTasksOwnerProps }
+    /**
+     * The clarification-queue tab body of the workbench drawer. Declared by the
+     * drawer shell's `shell.overlay` entry; a focused view of open clarification
+     * items (线稿「澄清队列」).
+     */
+    'workbench.drawer.clarifications': { kind: 'single'; scope: 'root' }
+    /**
      * The task-creation tab body of the workbench drawer. Declared by the
      * drawer shell's `shell.overlay` entry; the create package registers the
      * three-column new-task wizard here.
@@ -40,12 +58,16 @@ export interface DrawerTasksOwnerProps {
   openDetail: (taskId: string) => void
   /** Switch the drawer to the attention-inbox tab (KPI GATE/ASK drill-down). */
   openInbox: () => void
-  /** Switch the drawer to the task-creation wizard tab. */
-  openCreate: () => void
+  /** Switch to the creation wizard, optionally pre-selecting a recipe. */
+  openCreate: (recipeId?: string) => void
+  /** The recipe the create wizard should pre-select, or undefined for a free pick. */
+  initialRecipeId: string | undefined
 }
 
 /** Owner share of the detail seat: the task whose projection to show. */
 export interface DrawerDetailOwnerProps {
   /** The selected task id, or undefined while no task is selected (empty state). */
   taskId: string | undefined
+  /** Switch the drawer to the attention-inbox tab (rewind/preview decision). */
+  openInbox: () => void
 }

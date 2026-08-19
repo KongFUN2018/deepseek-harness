@@ -11,7 +11,10 @@ export const NS = 'workbenchDrawer' as const
 export type WorkbenchDrawerKey =
   | 'trigger'
   | 'tab.tasks'
+  | 'tab.taskList'
+  | 'tab.recipeLibrary'
   | 'tab.inbox'
+  | 'tab.clarifications'
   | 'tab.create'
   | 'tab.detail'
   | 'close'
@@ -24,8 +27,11 @@ export type WorkbenchDrawerKey =
 /** Chinese dictionary (product copy language). */
 export const zh = {
   'trigger': '任务流程',
-  'tab.tasks': '任务',
-  'tab.inbox': '收件箱',
+  'tab.tasks': '任务看板',
+  'tab.taskList': '任务列表',
+  'tab.recipeLibrary': 'Recipe 库',
+  'tab.inbox': '审批中心',
+  'tab.clarifications': '澄清队列',
   'tab.create': '新建',
   'tab.detail': '详情',
   'close': '关闭',
@@ -39,8 +45,11 @@ export const zh = {
 /** English dictionary. */
 export const en = {
   'trigger': 'Task Flow',
-  'tab.tasks': 'Tasks',
-  'tab.inbox': 'Inbox',
+  'tab.tasks': 'Board',
+  'tab.taskList': 'Task list',
+  'tab.recipeLibrary': 'Recipe library',
+  'tab.inbox': 'Approvals',
+  'tab.clarifications': 'Clarifications',
   'tab.create': 'Create',
   'tab.detail': 'Detail',
   'close': 'Close',

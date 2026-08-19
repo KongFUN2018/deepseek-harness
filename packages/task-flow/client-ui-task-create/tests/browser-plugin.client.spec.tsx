@@ -45,6 +45,7 @@ function makeProps(state: CreateState): {
   const composed: TaskCreateActionProps = {
     openDetail,
     openInbox: vi.fn(),
+    initialRecipeId: undefined,
     openCreate: vi.fn(),
     t,
     useCreate,

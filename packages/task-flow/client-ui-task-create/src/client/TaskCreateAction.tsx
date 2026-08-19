@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-workbench-drawer/client'
@@ -30,11 +30,16 @@ function recipeMeta(recipe: RecipeRevision): { phases: number; checks: number } 
 }
 
 export function TaskCreateAction(props: TaskCreateActionProps) {
-  const { t, openDetail, useCreate, create } = props
+  const { t, openDetail, initialRecipeId, useCreate, create } = props
   const state = useCreate(state => state)
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
   const [goal, setGoal] = useState('')
   const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    // Pre-select the recipe the Recipe-library chose; ignore an empty initial
+    // id so a direct entry into the wizard starts free.
+    if (initialRecipeId !== undefined) setSelectedId(String(initialRecipeId))
+  }, [initialRecipeId])
   const selected = state.recipes.find(recipe => recipe.recipeId === selectedId)
 
   return (

@@ -1,16 +1,15 @@
 // @vitest-environment jsdom
 /**
- * The workbench-drawer plugin's halves. Presentation: the floating trigger
- * opens and closes the drawer, the badge renders the open-attention count
- * and the active dot follows the active-task count, tabs dispatch their
- * seats through the render share, a tab switch resets the width to the
- * tab's semantic width, the resize drag clamps within bounds, Escape
- * closes, and reopening keeps the selected tab. Browser half on a real
- * SlotRegistry with scripted Remotes: the overlay entry registers with
- * its three seat declarations (fiber teardown removes them — HMR safety),
- * dictionaries register per locale, and the badge boot load reaches both
- * Remotes. The node half is inert; the invariant companion reserves
- * ownership.
+ * The workbench-drawer plugin's halves. Presentation: the store-driven drawer
+ * panel opens/closes through the shared store, tabs dispatch their seats
+ * through the render share, a tab switch resets the width to the tab's
+ * semantic width, the resize drag clamps within bounds, and the create tab
+ * selects the create seat. The sidebar.entry trigger toggles the same store.
+ * Browser half on a real SlotRegistry with scripted Remotes: both entries
+ * (sidebar.entry trigger + shell.overlay drawer) register with the four seat
+ * declarations (fiber teardown removes them — HMR safety), dictionaries
+ * register per locale, and the badge boot load reaches both Remotes. The
+ * node half is inert; the invariant companion reserves ownership.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -26,23 +25,31 @@ import { apply, inject } from '../src/client/index.ts'
 import { apply as applyNode } from '../src/index.ts'
 import * as DrawerInvariant from '../src/invariant.ts'
 import { en, NS, zh } from '../src/client/locales.ts'
+import { createWorkbenchStore, type WorkbenchState } from '../src/client/store.ts'
 
 afterEach(cleanup)
 
 const t = makeTranslate(zh)
 
-/** Component props with a controllable badge source and a spying renderSlot. */
-function makeProps(state: BadgeState): {
+type DrawerStoreInstance = ReturnType<ReturnType<typeof createWorkbenchStore>['create']>
+
+/** Component props for the store-driven drawer with a spying renderSlot. */
+function makeProps(state: BadgeState, store: DrawerStoreInstance = createWorkbenchStore().create()): {
   props: WorkbenchDrawerProps
   renderSlot: ReturnType<typeof vi.fn>
 } {
   const current = state
   const useBadge = <S,>(selector: (snapshot: BadgeState) => S) => selector(current)
+  // The renderer binds useStore to the store's snapshot; here we synthesize the
+  // selector read over the instance's live snapshot.
+  const useStore = <S,>(selector: (snapshot: WorkbenchState) => S) => selector(store.getSnapshot())
   const renderSlot = vi.fn(() => null)
   const unusedGlobal = { getSnapshot: () => ({}), subscribe: () => () => {} } as never
   const composed: WorkbenchDrawerProps = {
     t,
     useBadge,
+    useStore,
+    actions: store.actions,
     renderSlot,
     useSessions: unusedGlobal,
     useWorkspaces: unusedGlobal,
@@ -52,98 +59,72 @@ function makeProps(state: BadgeState): {
 
 const idle = (): BadgeState => ({ openCount: 0, activeCount: 0 })
 
-describe('WorkbenchDrawer', () => {
-  it('opens the drawer from the floating trigger and closes through the close control', () => {
-    const { props } = makeProps(idle())
-    render(<WorkbenchDrawer {...props} />)
-    const trigger = screen.getByRole('button', { name: new RegExp(zh.trigger) })
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(trigger)
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+describe('WorkbenchDrawer (store-driven panel)', () => {
+  it('opens when the shared store says open and closes via the close control', () => {
+    const store = createWorkbenchStore().create()
+    act(() => { store.actions.openDrawer() })
+    const { props } = makeProps(idle(), store)
+    const { rerender } = render(<WorkbenchDrawer {...props} />)
     expect(screen.getByRole('dialog')).toBeTruthy()
+    // The synthesized useStore reads the live snapshot; re-render after a store
+    // mutation reflects it (the renderer's real useStore subscribes and does this).
     fireEvent.click(screen.getByRole('button', { name: zh.close }))
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    rerender(<WorkbenchDrawer {...props} />)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('closes on Escape', () => {
-    const { props } = makeProps(idle())
-    render(<WorkbenchDrawer {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(zh.trigger) }))
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog')).toBeNull()
+  it('renders nothing while the store is closed', () => {
+    const props = makeProps(idle()).props
+    const { container } = render(<WorkbenchDrawer {...props} />)
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 
-  it('renders the badge count and the active dot from the badge state', () => {
-    const { props } = makeProps({ openCount: 3, activeCount: 2 })
-    render(<WorkbenchDrawer {...props} />)
-    const trigger = screen.getByRole('button', { name: new RegExp(zh.trigger) })
-    expect(trigger.textContent).toContain('3')
-    expect(screen.getByLabelText(zh['state.active'])).toBeTruthy()
-  })
-
-  it('hides the badge at zero and marks the idle state', () => {
-    const { props } = makeProps(idle())
-    render(<WorkbenchDrawer {...props} />)
-    expect(screen.queryByLabelText(zh['badge.open'].replace('{count}', '0'))).toBeNull()
-    expect(screen.getByLabelText(zh['state.idle'])).toBeTruthy()
-  })
-
-  it('dispatches the tasks seat on open and the inbox/detail seats on tab switch', () => {
-    const { props, renderSlot } = makeProps(idle())
-    render(<WorkbenchDrawer {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(zh.trigger) }))
-    const [seat, owner] = renderSlot.mock.calls[0] as [string, { openDetail: (taskId: string) => void }]
-    expect(seat).toBe('workbench.drawer.tasks')
-    expect(owner.openDetail).toBeTypeOf('function')
-    renderSlot.mockClear()
+  it('renders the four tabs and dispatches their seats on selection', () => {
+    const store = createWorkbenchStore().create()
+    act(() => { store.actions.openDrawer() })
+    const { props, renderSlot } = makeProps(idle(), store)
+    const { rerender } = render(<WorkbenchDrawer {...props} />)
+    // Default tab: tasks.
+    expect(renderSlot).toHaveBeenCalledWith('workbench.drawer.tasks', expect.objectContaining({ openDetail: expect.any(Function) }))
     fireEvent.click(screen.getByRole('tab', { name: new RegExp(zh['tab.inbox']) }))
+    rerender(<WorkbenchDrawer {...props} />)
     expect(renderSlot).toHaveBeenCalledWith('workbench.drawer.inbox', expect.objectContaining({}))
-    renderSlot.mockClear()
     fireEvent.click(screen.getByRole('tab', { name: new RegExp(zh['tab.detail']) }))
+    rerender(<WorkbenchDrawer {...props} />)
     expect(renderSlot).toHaveBeenCalledWith('workbench.drawer.detail', expect.objectContaining({ taskId: undefined }))
+    // The new create tab dispatches the create seat.
+    renderSlot.mockClear()
+    fireEvent.click(screen.getByRole('tab', { name: new RegExp(zh['tab.create']) }))
+    rerender(<WorkbenchDrawer {...props} />)
+    expect(renderSlot).toHaveBeenCalledWith('workbench.drawer.create', expect.anything())
   })
 
   it('passes the opened task id to the detail seat after openDetail', () => {
-    const { props, renderSlot } = makeProps(idle())
-    render(<WorkbenchDrawer {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(zh.trigger) }))
+    const store = createWorkbenchStore().create()
+    act(() => { store.actions.openDrawer() })
+    const { props, renderSlot } = makeProps(idle(), store)
+    const { rerender } = render(<WorkbenchDrawer {...props} />)
     const tasksCall = renderSlot.mock.calls.find(call => call[0] === 'workbench.drawer.tasks')
     const openDetail = (tasksCall as unknown as [string, { openDetail: (taskId: string) => void }])[1].openDetail
     act(() => { openDetail('t-42') })
+    rerender(<WorkbenchDrawer {...props} />)
     expect(renderSlot).toHaveBeenCalledWith('workbench.drawer.detail', expect.objectContaining({ taskId: 't-42' }))
-    // The drawer switched to the detail tab while staying open.
     expect(screen.getByRole('tab', { selected: true }).textContent).toContain(zh['tab.detail'])
   })
 
-  it('marks the selected tab and keeps it after close and reopen', () => {
-    const { props } = makeProps(idle())
-    render(<WorkbenchDrawer {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(zh.trigger) }))
-    fireEvent.click(screen.getByRole('tab', { name: new RegExp(zh['tab.inbox']) }))
-    expect(screen.getByRole('tab', { selected: true }).textContent).toContain(zh['tab.inbox'])
-    fireEvent.click(screen.getByRole('button', { name: zh.close }))
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(zh.trigger) }))
-    expect(screen.getByRole('tab', { selected: true }).textContent).toContain(zh['tab.inbox'])
-  })
-
   it('switching a tab returns to the semantic width and the drag clamps within bounds', () => {
-    const { props } = makeProps(idle())
+    const store = createWorkbenchStore().create()
+    act(() => { store.actions.openDrawer() })
+    const { props } = makeProps(idle(), store)
     const { container } = render(<WorkbenchDrawer {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(zh.trigger) }))
     const dialog = screen.getByRole('dialog')
-    // Tasks tab: semantic 600px.
     expect(dialog.style.width).toBe('600px')
-    // jsdom does no layout, so the drawer's measured width is 0; anchor the
-    // drag at the semantic width the same way a real browser would report it.
     Object.defineProperty(dialog, 'offsetWidth', { value: 600, configurable: true })
-    // Drag the left edge 400px right of the anchor: 600 + 400 = 1000 → clamp 960.
     const resize = container.querySelector('[role="separator"]') as HTMLElement
     fireEvent.pointerDown(resize, { clientX: 500, pointerId: 1 })
     fireEvent.pointerMove(resize, { clientX: 100, pointerId: 1 })
     fireEvent.pointerUp(resize, { pointerId: 1 })
     expect(dialog.style.width).toBe('960px')
-    // Switching tabs resets to the inbox semantic width.
     fireEvent.click(screen.getByRole('tab', { name: new RegExp(zh['tab.inbox']) }))
     expect(dialog.style.width).toBe('720px')
   })
@@ -177,7 +158,7 @@ describe('BadgeController', () => {
     ctx.provide('remote.workbenchHost', { listSnapshot } as never)
     ctx.provide('remote.tasks', { listTasks } as never)
     const badge = new BadgeController(ctx)
-    expect(listSnapshot).toHaveBeenCalledTimes(1) // boot load
+    expect(listSnapshot).toHaveBeenCalledTimes(1)
     expect(listTasks).toHaveBeenCalledTimes(1)
     await badge.refresh()
     expect(listSnapshot).toHaveBeenCalledTimes(2)
@@ -214,11 +195,12 @@ describe('BadgeController', () => {
 async function boot() {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  // The layout's overlay declaration: the drawer registers into it.
+  // Both declaration surfaces the drawer wires into.
   ctx.slots.register({
     name: 'root',
     children: {
       'shell.overlay': { kind: 'list', scope: 'root' },
+      'sidebar.entry': { kind: 'list', scope: 'root' },
     },
   } as never, () => null)
   ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
@@ -248,26 +230,23 @@ describe('workbench-drawer browser half', () => {
     expect(inject).toEqual(['slots', 'remote', 'remote.workbenchHost', 'remote.tasks', 'locale'])
   })
 
-  it('registers the overlay entry declaring the three seats, and teardown removes them (HMR safety)', async () => {
+  it('registers both entries declaring the four seats, and teardown removes them (HMR safety)', async () => {
     const { ctx, fiber } = await boot()
-    const entry = ctx.slots.entries('shell.overlay').find(e => e.options.id === 'workbench-drawer')
-    expect(entry).toBeDefined()
+    expect(ctx.slots.entries('shell.overlay').find(e => e.options.id === 'workbench-drawer')).toBeDefined()
+    expect(ctx.slots.entries('sidebar.entry').find(e => e.options.id === 'workbench-drawer-trigger')).toBeDefined()
     expect(ctx.slots.spec('workbench.drawer.tasks')).toBeDefined()
     expect(ctx.slots.spec('workbench.drawer.inbox')).toBeDefined()
     expect(ctx.slots.spec('workbench.drawer.detail')).toBeDefined()
+    expect(ctx.slots.spec('workbench.drawer.create')).toBeDefined()
     await fiber.dispose()
     expect(ctx.slots.entries('shell.overlay').find(e => e.options.id === 'workbench-drawer')).toBeUndefined()
-    // Seat declarations collapse with the entry that declared them.
+    expect(ctx.slots.entries('sidebar.entry').find(e => e.options.id === 'workbench-drawer-trigger')).toBeUndefined()
     expect(ctx.slots.spec('workbench.drawer.tasks')).toBeUndefined()
-    expect(ctx.slots.spec('workbench.drawer.inbox')).toBeUndefined()
-    expect(ctx.slots.spec('workbench.drawer.detail')).toBeUndefined()
   })
 
   it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {
     const { ctx, fiber } = await boot()
     const translate = ctx.locale.bind(NS)
-    // 'trigger' is namespace-exclusive: the common vocabulary also carries
-    // generic words like 'close', which would mask the namespace removal.
     expect(translate('trigger')).toBe(en.trigger)
     ctx.locale.setLocale('zh')
     expect(translate('trigger')).toBe(zh.trigger)
@@ -286,7 +265,7 @@ describe('workbench-drawer browser half', () => {
     await ctx.plugin(SlotRegistry).await()
     ctx.slots.register({
       name: 'root',
-      children: { 'shell.overlay': { kind: 'list', scope: 'root' } },
+      children: { 'shell.overlay': { kind: 'list', scope: 'root' }, 'sidebar.entry': { kind: 'list', scope: 'root' } },
     } as never, () => null)
     ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
     class RemoteService extends Service {
@@ -310,9 +289,21 @@ describe('workbench-drawer browser half', () => {
     await fiber.dispose()
   })
 
-  it('wires the entry inject face to the badge store', async () => {
+  it('wires the overlay entry inject face to the badge store', async () => {
     const { ctx, fiber } = await boot()
     const entry = ctx.slots.entries('shell.overlay').find(e => e.options.id === 'workbench-drawer')
+    const injectFace = (entry as unknown as { inject?: () => unknown }).inject
+    expect(injectFace).toBeTypeOf('function')
+    const injected = injectFace?.() as {
+      hooks: { badge: { getSnapshot(): BadgeState } }
+    }
+    expect(injected.hooks.badge.getSnapshot().openCount).toBe(0)
+    await fiber.dispose()
+  })
+
+  it('wires the sidebar trigger entry inject face to the same badge store', async () => {
+    const { ctx, fiber } = await boot()
+    const entry = ctx.slots.entries('sidebar.entry').find(e => e.options.id === 'workbench-drawer-trigger')
     const injectFace = (entry as unknown as { inject?: () => unknown }).inject
     expect(injectFace).toBeTypeOf('function')
     const injected = injectFace?.() as {

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import RecipeRegistry, {
+  BUGFIX_RECIPE_ID,
+  CODE_REVIEW_RECIPE_ID,
   EMPTY_TEMPLATE,
   EMPTY_TEMPLATE_RECIPE_ID,
+  REQUIREMENT_RECIPE_ID,
   RecipeId,
   hashRecipePayload,
   validateRecipePayload,
@@ -83,9 +86,14 @@ describe('recipe hash verification', () => {
 })
 
 describe('recipe registry', () => {
-  it('registers the built-in empty template at boot', () => {
+  it('registers the built-in empty template and validation scenarios at boot', () => {
     const registry = new RecipeRegistry(new Context())
-    expect(registry.list()).toEqual([{ recipeId: EMPTY_TEMPLATE_RECIPE_ID, revision: 1 }])
+    expect(registry.list()).toEqual([
+      { recipeId: EMPTY_TEMPLATE_RECIPE_ID, revision: 1 },
+      { recipeId: REQUIREMENT_RECIPE_ID, revision: 1 },
+      { recipeId: CODE_REVIEW_RECIPE_ID, revision: 1 },
+      { recipeId: BUGFIX_RECIPE_ID, revision: 1 },
+    ])
     const pinned = registry.getPinned({ recipeId: RecipeId(EMPTY_TEMPLATE_RECIPE_ID), revision: 1 })
     expect(pinned.payload).toEqual(EMPTY_TEMPLATE)
     expect(pinned.schemaVersion).toBe(1)
@@ -122,6 +130,9 @@ describe('recipe registry', () => {
     expect(registry.latest(' demo ')?.revision).toBe(1)
     expect(registry.list()).toEqual([
       { recipeId: EMPTY_TEMPLATE_RECIPE_ID, revision: 1 },
+      { recipeId: REQUIREMENT_RECIPE_ID, revision: 1 },
+      { recipeId: CODE_REVIEW_RECIPE_ID, revision: 1 },
+      { recipeId: BUGFIX_RECIPE_ID, revision: 1 },
       { recipeId: RecipeId('demo'), revision: 1 },
     ])
     // The trimmed spelling addresses the same stored revision: same payload is

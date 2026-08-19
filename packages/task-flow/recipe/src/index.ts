@@ -12,6 +12,14 @@ import { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { RecipeId } from './runtime.ts'
 import { EMPTY_TEMPLATE, EMPTY_TEMPLATE_RECIPE_ID } from './empty-template.ts'
+import {
+  BUGFIX_RECIPE_ID,
+  BUGFIX_TEMPLATE,
+  CODE_REVIEW_RECIPE_ID,
+  CODE_REVIEW_TEMPLATE,
+  REQUIREMENT_RECIPE_ID,
+  REQUIREMENT_TEMPLATE,
+} from './seed-templates.ts'
 import { RecipeError } from './types.ts'
 import type {
   RecipeDefaults,
@@ -24,6 +32,11 @@ export type * from './types.ts'
 export { RecipeError } from './types.ts'
 export { RecipeId } from './runtime.ts'
 export { EMPTY_TEMPLATE, EMPTY_TEMPLATE_RECIPE_ID } from './empty-template.ts'
+export {
+  BUGFIX_RECIPE_ID, BUGFIX_TEMPLATE,
+  CODE_REVIEW_RECIPE_ID, CODE_REVIEW_TEMPLATE,
+  REQUIREMENT_RECIPE_ID, REQUIREMENT_TEMPLATE,
+} from './seed-templates.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -136,6 +149,11 @@ export class RecipeRegistry extends TypertRemoteService {
   constructor(ctx: Context) {
     super(ctx, 'recipes')
     this.register(EMPTY_TEMPLATE_RECIPE_ID, 1, EMPTY_TEMPLATE)
+    // Built-in validation scenarios so the workbench starts with pickable
+    // templates (需求研发 / 代码审查 / Bug 修复), all revision 1.
+    this.register(REQUIREMENT_RECIPE_ID, 1, REQUIREMENT_TEMPLATE)
+    this.register(CODE_REVIEW_RECIPE_ID, 1, CODE_REVIEW_TEMPLATE)
+    this.register(BUGFIX_RECIPE_ID, 1, BUGFIX_TEMPLATE)
   }
 
   /**
