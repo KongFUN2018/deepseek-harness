@@ -91,8 +91,112 @@
 
 .footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   padding-top: 2px;
+}
+
+/* Refresh confirmation: a small success-toned line right of the action. */
+.syncedLine {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-success-primary);
+}
+
+/* KPI-adjacent charts: throughput sparkline and Gate pass-rate bars. */
+.chartRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chartCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.chartTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.chartHint {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.chartEmpty {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.sparkline {
+  width: 100%;
+  height: 44px;
+}
+
+.sparkLine {
+  fill: none;
+  stroke: var(--dsw-alias-state-business-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 60px;
+}
+
+.barCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.barTrack {
+  display: flex;
+  align-items: flex-end;
+  width: 22px;
+  height: 44px;
+  border-radius: 3px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  overflow: hidden;
+}
+
+.barFill {
+  width: 100%;
+  border-radius: 3px;
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.barLabel {
+  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* Gate pause badge: the class the task currently waits on. */
+.gateBadge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-state-warn-primary);
+  border: 1px solid var(--dsw-alias-state-warn-primary);
 }
 
 /* KPI row: four count cards atop the list; gate/ask drill into the inbox. */

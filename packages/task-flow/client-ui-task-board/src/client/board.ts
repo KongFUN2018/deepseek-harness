@@ -12,7 +12,7 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 // Type-only: pulls the generated tasks Remote namespace and the forwarded-event
 // key face into this compilation program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { TaskMutationContext, TaskRecord } from '@deepseek-ai/dsh-task/types'
+import type { GateCheckResult, PhaseRunRecord, TaskMutationContext, TaskRecord } from '@deepseek-ai/dsh-task/types'
 import type { WorkbenchMetrics } from '@deepseek-ai/dsh-metrics/types'
 
 /** Lifecycle of the board's task-list load. */
@@ -26,6 +26,9 @@ export interface PhaseProgress {
   readonly total: number
 }
 
+/** The gate class a task currently waits on, or undefined when none is paused. */
+export type GatePause = 'A' | 'B' | 'C' | undefined
+
 /** Snapshot state the board component renders. */
 export interface TaskBoardState {
   /** Load status of the task list. */
@@ -36,6 +39,8 @@ export interface TaskBoardState {
   readonly metrics: WorkbenchMetrics | undefined
   /** Per-task phase progress keyed by task id; refreshed with the list. */
   readonly phaseProgress: ReadonlyMap<string, PhaseProgress>
+  /** Per-task gate pause class keyed by task id; absent while the task runs freely. */
+  readonly taskGates: ReadonlyMap<string, GatePause>
   /** Failure code of the last failed load or command, shown until the next success. */
   readonly error?: string | undefined
   /** Epoch ms of the last successful load or fold. */
@@ -54,6 +59,29 @@ function phaseProgressOf(phaseRuns: readonly PhaseRunView[]): PhaseProgress {
   const total = phaseRuns.length
   const index = phaseRuns.findIndex(run => !PHASE_SETTLED.has(run.state))
   return { current: index === -1 ? total : index + 1, total }
+}
+
+/** Phase states that park a run on a Gate, signalling a waiting decision. */
+const GATE_PAUSED = new Set(['gate-running', 'awaiting-decision', 'awaiting-input', 'submitting', 'submitted'])
+
+/** Class order for choosing the highest-priority pending check. */
+const GATE_ORDER: Record<'A' | 'B' | 'C', number> = { A: 0, B: 1, C: 2 }
+
+/**
+ * Derive a task's gate pause class from its latest unsettled phase run: the
+ * gate class of the first failing check on that phase's active submission.
+ * @param runs - the run's phase runs, in recording order.
+ * @param gates - the gate results of a submission, or undefined on a dropped read.
+ * @returns the paused gate class, or undefined when no gate is waiting.
+ */
+export function gatePauseOf(runs: readonly PhaseRunRecord[], gates: readonly GateCheckResult[] | undefined): GatePause {
+  const paused = runs.find(run => GATE_PAUSED.has(run.state))
+  if (paused === undefined || gates === undefined) return undefined
+  const failing = gates
+    .filter(gate => gate.passed === false || gate.stale === true)
+    .map(gate => (gate.kind ?? 'A') as 'A' | 'B' | 'C')
+    .sort((a, b) => GATE_ORDER[a] - GATE_ORDER[b])
+  return failing[0]
 }
 
 /** Minimal phase-run read the progress fold needs. */
@@ -133,7 +161,7 @@ export class TaskBoardController {
    */
   constructor(ctx: ClientContext) {
     this.ctx = ctx
-    this.store = createSnapshotStore<TaskBoardState>({ status: 'loading', tasks: [], metrics: undefined, phaseProgress: new Map(), updatedAt: 0 })
+    this.store = createSnapshotStore<TaskBoardState>({ status: 'loading', tasks: [], metrics: undefined, phaseProgress: new Map(), taskGates: new Map(), updatedAt: 0 })
     ctx.effect(() => ctx.remote.$on('task/updated', (task) => { this.fold(task) }), 'task-board: task/updated fold')
     // A reconnect may have missed forwarded deliveries; the projection is
     // authoritative, so resync from the Remote instead of trusting the fold.
@@ -169,8 +197,16 @@ export class TaskBoardController {
     const snapshot = this.store.getSnapshot()
     if (!snapshot.tasks.some(row => row.taskId === task.taskId)) return
     const phaseProgress = new Map(snapshot.phaseProgress)
+    const taskGates = new Map(snapshot.taskGates)
     phaseProgress.set(task.taskId, phaseProgressOf(runs.value))
-    this.store.set({ ...snapshot, phaseProgress })
+    const paused = runs.value.find(run => GATE_PAUSED.has(run.state))
+    let gate: GatePause = undefined
+    if (paused !== undefined && paused.activeSubmissionId !== undefined) {
+      const gates = await this.ctx.remote.tasks.listGateResults(String(paused.activeSubmissionId))
+      gate = gates.ok ? gatePauseOf(runs.value, gates.value) : undefined
+    }
+    taskGates.set(task.taskId, gate)
+    this.store.set({ ...snapshot, phaseProgress, taskGates })
   }
 
   /**
@@ -188,19 +224,28 @@ export class TaskBoardController {
     }
     const tasks = [...result.value].sort(byCreation)
     const metrics = metricsResult.ok ? metricsResult.value : undefined
-    // Phase progress rides the same refresh; a per-task read failure keeps a
-    // zero progress slot rather than failing the whole board.
+    // Phase progress and gate-pause rides the same refresh; a per-task read
+    // failure keeps a zero progress slot rather than failing the whole board.
     const entries = await Promise.all(tasks.map(async (task) => {
-      if (task.currentRunId === undefined) return [task.taskId, { current: 0, total: 0 }] as const
+      if (task.currentRunId === undefined) return [task.taskId, { current: 0, total: 0 }, undefined] as const
       const runs = await this.ctx.remote.tasks.listPhaseRuns(String(task.currentRunId))
-      return [task.taskId, runs.ok ? phaseProgressOf(runs.value) : { current: 0, total: 0 }] as const
+      if (!runs.ok) return [task.taskId, { current: 0, total: 0 }, undefined] as const
+      const progress = phaseProgressOf(runs.value)
+      const paused = runs.value.find(run => GATE_PAUSED.has(run.state))
+      let gate: GatePause = undefined
+      if (paused !== undefined && paused.activeSubmissionId !== undefined) {
+        const gates = await this.ctx.remote.tasks.listGateResults(String(paused.activeSubmissionId))
+        gate = gates.ok ? gatePauseOf(runs.value, gates.value) : undefined
+      }
+      return [task.taskId, progress, gate] as const
     }))
-    const phaseProgress = new Map(entries)
+    const phaseProgress = new Map(entries.map(([id, progress]) => [id, progress] as const))
+    const taskGates = new Map(entries.map(([id, , gate]) => [id, gate] as const))
     // A resync keeps any recorded command failure: the line reads as history
     // ("failed with X, since resynced"), and only a later successful command
     // or load-failure code replaces it.
     const { error } = this.store.getSnapshot()
-    this.store.set({ status: 'ready', tasks, metrics, phaseProgress, error, updatedAt: Date.now() })
+    this.store.set({ status: 'ready', tasks, metrics, phaseProgress, taskGates, error, updatedAt: Date.now() })
   }
 
   /**

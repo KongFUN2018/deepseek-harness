@@ -42,7 +42,7 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: () => ({
       hooks: { board: board.store },
-      refresh: () => { void board.refresh() },
+      refresh: () => board.refresh(),
       command: (taskId: string, verb: TaskBoardVerb) => { void board.command(taskId, verb) },
     }),
   }, TaskBoardAction))

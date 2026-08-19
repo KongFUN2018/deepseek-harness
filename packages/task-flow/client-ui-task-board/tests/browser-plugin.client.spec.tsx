@@ -56,7 +56,7 @@ function makeProps(state: TaskBoardState): {
 } {
   let current = state
   const command = vi.fn()
-  const refresh = vi.fn()
+  const refresh = vi.fn(() => Promise.resolve())
   const openDetail = vi.fn()
   const useBoard = <S,>(selector: (snapshot: TaskBoardState) => S) => selector(current)
   // The framework's global standard props (useSessions/useWorkspaces) are
@@ -67,6 +67,7 @@ function makeProps(state: TaskBoardState): {
   const composed: TaskBoardActionProps = {
     openInbox,
     openCreate,
+    initialRecipeId: undefined,
     openDetail,
     t,
     useBoard,
@@ -84,7 +85,7 @@ function makeProps(state: TaskBoardState): {
   }
 }
 
-const ready = (tasks: readonly TaskRecord[]): TaskBoardState => ({ status: 'ready', tasks, metrics: undefined, phaseProgress: new Map(), updatedAt: 1 })
+const ready = (tasks: readonly TaskRecord[]): TaskBoardState => ({ status: 'ready', tasks, metrics: undefined, phaseProgress: new Map(), taskGates: new Map(), updatedAt: 1 })
 
 describe('TaskBoardAction', () => {
   it('renders rows with state words and verbs', () => {
@@ -110,15 +111,39 @@ describe('TaskBoardAction', () => {
     expect(openDetail).not.toHaveBeenCalled()
   })
 
-  it('fires refresh from the footer', () => {
+  it('fires refresh from the footer and confirms with a synced line', async () => {
     const { props, refresh } = makeProps(ready([]))
     render(<TaskBoardAction {...props} />)
     fireEvent.click(screen.getByRole('button', { name: zh.refresh }))
     expect(refresh).toHaveBeenCalledTimes(1)
+    // The button settles back to "刷新" and a success-toned synced line appears.
+    expect(await screen.findByText(new RegExp(zh['synced'].replace('{time}', '.*')))).toBeTruthy()
+    expect(screen.getByRole('button', { name: zh.refresh })).toBeTruthy()
+  })
+
+  it('renders the throughput sparkline and gate pass-rate bars from metrics', () => {
+    const state: TaskBoardState = {
+      status: 'ready',
+      tasks: [],
+      metrics: {
+        live: 1, gate: 0, ask: 0, asset: 2,
+        throughput: [{ day: '2026-01-01', completedPhases: 2 }, { day: '2026-01-02', completedPhases: 5 }],
+        gatePassRate: { a: 1, b: 0.5, c: 0.25 },
+      },
+      phaseProgress: new Map(),
+      taskGates: new Map(),
+      updatedAt: 1,
+    }
+    const { props } = makeProps(state)
+    render(<TaskBoardAction {...props} />)
+    expect(screen.getByRole('img', { name: zh['chart.throughput'] })).toBeTruthy()
+    expect(screen.getByRole('img', { name: zh['chart.gateRate'] })).toBeTruthy()
+    expect(screen.getByText(zh['chart.throughput'])).toBeTruthy()
+    expect(screen.getByText(zh['chart.gateRate'])).toBeTruthy()
   })
 
   it('renders the loading, empty, and failed panels', () => {
-    const loading = makeProps({ status: 'loading', tasks: [], metrics: undefined, phaseProgress: new Map(), updatedAt: 0 })
+    const loading = makeProps({ status: 'loading', tasks: [], metrics: undefined, phaseProgress: new Map(), taskGates: new Map(), updatedAt: 0 })
     render(<TaskBoardAction {...loading.props} />)
     expect(screen.getByText(zh.loading)).toBeTruthy()
     cleanup()
@@ -128,13 +153,13 @@ describe('TaskBoardAction', () => {
     expect(screen.getByText(zh.empty)).toBeTruthy()
     cleanup()
 
-    const failed = makeProps({ status: 'failed', tasks: [], metrics: undefined, phaseProgress: new Map(), error: 'unavailable', updatedAt: 0 })
+    const failed = makeProps({ status: 'failed', tasks: [], metrics: undefined, phaseProgress: new Map(), taskGates: new Map(), error: 'unavailable', updatedAt: 0 })
     render(<TaskBoardAction {...failed.props} />)
     expect(screen.getByRole('alert').textContent).toContain('unavailable')
   })
 
   it('shows the command-failure line with the code until the next successful command', () => {
-    const board = makeProps({ status: 'ready', tasks: [task()], metrics: undefined, phaseProgress: new Map(), error: 'stale-revision', updatedAt: 1 })
+    const board = makeProps({ status: 'ready', tasks: [task()], metrics: undefined, phaseProgress: new Map(), taskGates: new Map(), error: 'stale-revision', updatedAt: 1 })
     render(<TaskBoardAction {...board.props} />)
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('stale-revision')
