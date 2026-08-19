@@ -133,6 +133,72 @@
   margin-top: 12px;
 }
 
+
+.rewindPanel {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.rootList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.rootsHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.rootRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+/* Product-revision patch form: note, submit/cancel, and error line. */
+.patchPanel {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.patchNote {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.patchActions {
+  display: flex;
+  gap: 6px;
+}
+
+.successLine {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-state-success-primary);
+}
+
 .hintLine {
   margin: 6px 0 0;
   font-size: 12px;

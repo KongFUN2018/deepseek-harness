@@ -56,13 +56,16 @@ function makeProps(state: TaskDetailState, taskId: string | undefined = 't-1'): 
     t,
     useDetail,
     load,
+    requestRewind: vi.fn(),
+    requestPatch: vi.fn(),
+    openInbox: vi.fn(),
     useSessions: unusedGlobal,
     useWorkspaces: unusedGlobal,
   }
   return { props: composed, load }
 }
 
-const idle = (): TaskDetailState => ({ status: 'idle', phaseRuns: [], gateResults: [], digest: undefined })
+const idle = (): TaskDetailState => ({ status: 'idle', phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] })
 
 describe('TaskDetailAction', () => {
   it('loads the owner task id on mount and renders the task, phase runs, and verdicts', () => {
@@ -81,7 +84,7 @@ describe('TaskDetailAction', () => {
       passed: true,
       recordedAt: 1,
     }
-    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [phase], gateResults: [gate], digest: undefined }, String(row.taskId))
+    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [phase], gateResults: [gate], digest: undefined, rootVersions: [] }, String(row.taskId))
     render(<TaskDetailAction {...props} />)
     expect(load).toHaveBeenCalledWith(String(row.taskId))
     expect(screen.getByText('phase-a')).toBeTruthy()
@@ -90,7 +93,7 @@ describe('TaskDetailAction', () => {
 
   it('reloads when the owner switches the task id', () => {
     const row = task()
-    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [], digest: undefined }, 't-1')
+    const { props, load } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] }, 't-1')
     const { rerender } = render(<TaskDetailAction {...props} />)
     expect(load).toHaveBeenCalledWith('t-1')
     load.mockClear()
@@ -106,13 +109,13 @@ describe('TaskDetailAction', () => {
   })
 
   it('shows the not-found line for a missing task', () => {
-    const { props } = makeProps({ status: 'failed', error: 'not-found', phaseRuns: [], gateResults: [], digest: undefined })
+    const { props } = makeProps({ status: 'failed', error: 'not-found', phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByRole('alert').textContent).toBe(zh['not-found'])
   })
 
   it('renders the loading panel', () => {
-    const loading = makeProps({ status: 'loading', phaseRuns: [], gateResults: [], digest: undefined })
+    const loading = makeProps({ status: 'loading', phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] })
     render(<TaskDetailAction {...loading.props} />)
     expect(screen.getByText(zh.loading)).toBeTruthy()
   })
@@ -124,7 +127,7 @@ describe('TaskDetailAction', () => {
     ] as const
     for (const state of states) {
       const row = task()
-      const { props } = makeProps({ status: 'ready', task: { ...row, state }, phaseRuns: [], gateResults: [], digest: undefined })
+      const { props } = makeProps({ status: 'ready', task: { ...row, state }, phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] })
       render(<TaskDetailAction {...props} />)
       const metas = screen.getAllByText((_, element) =>
         element?.textContent?.includes(state) === true && element.textContent.includes('版本'))
@@ -134,20 +137,20 @@ describe('TaskDetailAction', () => {
   })
 
   it('shows the load-failure line for a non-missing error', () => {
-    const { props } = makeProps({ status: 'failed', error: 'unavailable', phaseRuns: [], gateResults: [], digest: undefined })
+    const { props } = makeProps({ status: 'failed', error: 'unavailable', phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByRole('alert').textContent).toContain('unavailable')
   })
 
   it('renders the load-failure line when a failure carries no code', () => {
-    const { props } = makeProps({ status: 'failed', phaseRuns: [], gateResults: [], digest: undefined })
+    const { props } = makeProps({ status: 'failed', phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByRole('alert').textContent).toContain(zh['error.load'].split('{code}')[0])
   })
 
   it('shows the none line for empty phase runs and verdicts', () => {
     const row = task()
-    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [], digest: undefined })
+    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [], digest: undefined, rootVersions: [] })
     render(<TaskDetailAction {...props} />)
     expect(screen.getAllByText(zh.none).length).toBe(2)
   })
@@ -160,7 +163,7 @@ describe('TaskDetailAction', () => {
       passed: false,
       recordedAt: 1,
     }
-    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [gate], digest: undefined })
+    const { props } = makeProps({ status: 'ready', task: row, phaseRuns: [], gateResults: [gate], digest: undefined, rootVersions: [] })
     render(<TaskDetailAction {...props} />)
     expect(screen.getByText(zh.failed)).toBeTruthy()
   })
@@ -204,6 +207,12 @@ async function boot() {
     listPhaseRuns: async () => ({ ok: true as const, value: [] }),
     listGateResults: async () => ({ ok: true as const, value: [] }),
   } as never)
+  ctx.provide('remote.rewind', {
+    requestRewind: async () => ({ ok: true as const, value: { snapshotId: 's-1', invalidatedVersionIds: [], rerunPhaseIds: [], reusableClarificationIds: [], costHint: 'uncalibrated', itemId: 'rewind:t-1:s-1' } }),
+  } as never)
+  ctx.provide('remote.deliverables', {
+    listCurrentInputs: async () => ({ ok: true as const, value: [] }),
+  } as never)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
   const fiber = ctx.plugin({ inject: [...inject], apply })
@@ -213,7 +222,7 @@ async function boot() {
 
 describe('task-detail browser half', () => {
   it('declares the services it binds', () => {
-    expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'remote.digest', 'locale'])
+    expect(inject).toEqual(['slots', 'remote', 'remote.tasks', 'remote.digest', 'remote.rewind', 'remote.deliverables', 'locale'])
   })
 
   it('registers the drawer seat entry, and fiber teardown removes it (HMR safety)', async () => {

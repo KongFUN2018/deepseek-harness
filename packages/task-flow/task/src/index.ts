@@ -503,55 +503,122 @@ export abstract class TaskHandle extends TypertRemoteService {
    * caller (the engine) computed.
    * @returns the stored submission; an idempotent replay returns the original.
    */
-  @Remote('recordSubmission')
-  async recordSubmission(submission: PhaseSubmission, environment: SubmissionEnvironmentFacts): Promise<PhaseSubmission> {
-    return this.serialized(async () => {
-      const task = await this.loadTaskOrThrow(submission.taskId)
-      const run = await this.loadRunOrThrow(submission.taskRunId)
-      const phaseRun = await this.loadPhaseRunOrThrow(submission.phaseRunId)
-      const recipes = this.ctx.get('recipes') as RecipeRegistry
-      let registeredHash: string
-      try {
-        registeredHash = recipes.getPinned({
-          recipeId: submission.pinnedRecipe.recipeId,
-          revision: submission.pinnedRecipe.revision,
-        }).contentHash
-      } catch (error) {
-        if (error instanceof RecipeError && error.code === 'not-found') {
-          throw new TaskError('submission-rejected', 'the pinned recipe revision is not registered')
-        }
-        throw error
+  /**
+   * Apply one submission's acceptance on the caller's serialized grant: the
+   * journal write tail is held by the caller, so this body runs inside one
+   * single serialized grant (either recordSubmission or, for a host-derived
+   * revision, requestPatch).
+   * @param submission - the stored submission to accept.
+   * @param environment - acceptance facts resolved by the caller.
+   * @returns the stored submission.
+   */
+  protected async applySubmission(submission: PhaseSubmission, environment: SubmissionEnvironmentFacts): Promise<PhaseSubmission> {
+    const task = await this.loadTaskOrThrow(submission.taskId)
+    const run = await this.loadRunOrThrow(submission.taskRunId)
+    const phaseRun = await this.loadPhaseRunOrThrow(submission.phaseRunId)
+    const recipes = this.ctx.get('recipes') as RecipeRegistry
+    let registeredHash: string
+    try {
+      registeredHash = recipes.getPinned({
+        recipeId: submission.pinnedRecipe.recipeId,
+        revision: submission.pinnedRecipe.revision,
+      }).contentHash
+    } catch (error) {
+      if (error instanceof RecipeError && error.code === 'not-found') {
+        throw new TaskError('submission-rejected', 'the pinned recipe revision is not registered')
       }
-      const facts = await this.resolveSubmissionEnvironment(submission, environment)
-      const existing = await this.loadSubmissionByIdempotencyKey(submission.idempotencyKey)
-      const verdict = acceptSubmission({
-        submission, task, run, phaseRun, registeredHash,
-        sourceSeqPersisted: facts.sourceSeqPersisted,
-        inputsCurrent: facts.inputsCurrent,
-        outputsValid: facts.outputsValid,
-        ...existing === undefined ? {} : { existingByIdempotency: existing },
-      } satisfies SubmissionAcceptanceFacts)
-      if (!verdict.ok) {
-        throw new TaskError('submission-rejected', `submission has ${verdict.problems.length} rejection problem(s)`, verdict.problems)
-      }
-      if (verdict.idempotentReturn !== undefined) return verdict.idempotentReturn
-      const next = phaseTransition(phaseRun.state, 'acceptSubmission')
-      if (next === null) throw new TaskError('invalid-transition', 'the phase run cannot accept a submission in its current state')
-      await this.onSubmissionAccepted(submission)
-      const updatedPhaseRun: PhaseRunRecord = {
-        ...phaseRun,
-        state: next,
-        revision: phaseRun.revision + 1,
-        activeSubmissionId: submission.submissionId,
-      }
-      const provenance: WriteProvenance = { actor: facts.submittedBy, idempotencyKey: submission.idempotencyKey }
-      await this.saveSubmission(submission, provenance)
-      if (!await this.savePhaseRun(updatedPhaseRun, provenance)) throw new TaskError('stale-revision', 'phase-run revision moved concurrently')
-      this.emit('phase-run/updated', updatedPhaseRun)
-      return submission
-    })
+      throw error
+    }
+    const facts = await this.resolveSubmissionEnvironment(submission, environment)
+    const existing = await this.loadSubmissionByIdempotencyKey(submission.idempotencyKey)
+    const verdict = acceptSubmission({
+      submission, task, run, phaseRun, registeredHash,
+      sourceSeqPersisted: facts.sourceSeqPersisted,
+      inputsCurrent: facts.inputsCurrent,
+      outputsValid: facts.outputsValid,
+      ...existing === undefined ? {} : { existingByIdempotency: existing },
+    } satisfies SubmissionAcceptanceFacts)
+    if (!verdict.ok) {
+      throw new TaskError('submission-rejected', `submission has ${verdict.problems.length} rejection problem(s)`, verdict.problems)
+    }
+    if (verdict.idempotentReturn !== undefined) return verdict.idempotentReturn
+    const next = phaseTransition(phaseRun.state, 'acceptSubmission')
+    if (next === null) throw new TaskError('invalid-transition', 'the phase run cannot accept a submission in its current state')
+    await this.onSubmissionAccepted(submission)
+    const updatedPhaseRun: PhaseRunRecord = {
+      ...phaseRun,
+      state: next,
+      revision: phaseRun.revision + 1,
+      activeSubmissionId: submission.submissionId,
+    }
+    const provenance: WriteProvenance = { actor: facts.submittedBy, idempotencyKey: submission.idempotencyKey }
+    await this.saveSubmission(submission, provenance)
+    if (!await this.savePhaseRun(updatedPhaseRun, provenance)) throw new TaskError('stale-revision', 'phase-run revision moved concurrently')
+    this.emit('phase-run/updated', updatedPhaseRun)
+    return submission
   }
 
+  @Remote('recordSubmission')
+  async recordSubmission(submission: PhaseSubmission, environment: SubmissionEnvironmentFacts): Promise<PhaseSubmission> {
+    return this.serialized(() => this.applySubmission(submission, environment))
+  }
+
+  /**
+   * Patch one phase's accepted submission: re-submit a superseding revision
+   * that carries a human correction note. The host derives every journal field
+   * from the active submission (source session/sequence, pinned recipe, input
+   * and output versions) so an observer UI only supplies the correction note.
+   * @param taskId - the task owning the phase run.
+   * @param phaseRunId - the phase run whose active submission is patched.
+   * @param note - the human-readable correction note; must not be blank.
+   * @param mutation - the phase run's expected revision plus actor metadata.
+   * @returns the stored patch submission (the superseding revision).
+   */
+  @Remote('requestPatch')
+  async requestPatch(taskId: string, phaseRunId: string, note: string, mutation: TaskMutationContext): Promise<PhaseSubmission> {
+    return this.serialized(async () => {
+      const phaseRun = await this.loadPhaseRunOrThrow(PhaseRunIdValue(phaseRunId))
+      if (TaskIdValue(taskId) !== phaseRun.taskId) {
+        throw new TaskError('submission-rejected', 'phase run does not belong to the given task')
+      }
+      if (phaseRun.activeSubmissionId === undefined) {
+        throw new TaskError('submission-rejected', 'no active submission on this phase run to patch')
+      }
+      const trimmed = note.trim()
+      if (trimmed.length === 0) throw new TaskError('submission-rejected', 'patch note must not be empty')
+      const base = await this.loadSubmission(SubmissionIdValue(phaseRun.activeSubmissionId))
+      if (base === undefined) throw new TaskError('submission-rejected', 'active submission is not readable')
+      if (phaseRun.state !== 'running' && phaseRun.state !== 'awaiting-input' && phaseRun.state !== 'awaiting-decision' && phaseRun.state !== 'gate-running') {
+        throw new TaskError('invalid-transition', 'phase run is not open for a patch')
+      }
+      const patch: PhaseSubmission = {
+        ...base,
+        submissionId: SubmissionIdValue(randomUUID()),
+        attempt: base.attempt + 1,
+        supersedesSubmissionId: base.submissionId,
+        unresolvedIssues: [...base.unresolvedIssues, trimmed],
+        idempotencyKey: 'patch-' + randomUUID(),
+        submittedAt: Date.now(),
+      }
+      // The patch records the corrected revision in place and re-enters the
+      // gate (原地修正，Gate 将重验) for states that were awaiting a decision.
+      const nextState = (phaseRun.state === 'awaiting-input' || phaseRun.state === 'awaiting-decision') ? 'gate-running' : phaseRun.state
+      const nextPhase: PhaseRunRecord = {
+        ...phaseRun,
+        state: nextState,
+        revision: phaseRun.revision + 1,
+        activeSubmissionId: patch.submissionId,
+      }
+      const provenance: WriteProvenance = { actor: mutation.actor, idempotencyKey: patch.idempotencyKey }
+      await this.saveSubmission(patch, provenance)
+      const needsPhaseWrite = nextState !== phaseRun.state || nextPhase.activeSubmissionId !== phaseRun.activeSubmissionId
+      if (needsPhaseWrite) {
+        if (!await this.savePhaseRun(nextPhase, provenance)) throw new TaskError('stale-revision', 'phase-run revision moved concurrently')
+        this.emit('phase-run/updated', nextPhase)
+      }
+      return patch
+    })
+  }
   /**
    * Start the gate for one accepted submission.
    * @param submissionId - the accepted submission.

@@ -78,6 +78,9 @@ async function bench(script: {
       listPhaseRuns: async (runId: string) => { phaseLoads(runId); return phasesResult } ,
       listGateResults: async (submissionId: string) => { gateLoads(submissionId); return gatesResult } ,
     },
+    deliverables: {
+      listCurrentInputs: async () => ({ ok: true as const, value: [] }),
+    },
   })
   const controller = new TaskDetailController(ctx)
   return { controller, gets, phaseLoads, gateLoads }

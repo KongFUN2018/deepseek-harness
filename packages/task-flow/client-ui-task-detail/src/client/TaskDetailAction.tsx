@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { RewindPreview } from '@deepseek-ai/dsh-rewind/types'
 import type { TaskRecord } from '@deepseek-ai/dsh-task/types'
 import { Button, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -18,6 +19,10 @@ export interface TaskDetailActionInjected {
   hooks: { detail: HostObservable<TaskDetailState> }
   /** Load one task's projection, phase runs, and gate verdicts. */
   load: (taskId: string) => void
+  /** Request a rewind impact preview as a blocking attention decision item. */
+  requestRewind: (taskId: string, roots: string[], actor: string, idemKey: string) => Promise<RewindPreview & { itemId: string }>
+  /** Re-submit the phase output as a superseding revision carrying a note. */
+  requestPatch: (taskId: string, phaseRunId: string, note: string, actor: string, idemKey: string) => Promise<import('@deepseek-ai/dsh-task/types').PhaseSubmission>
 }
 
 /** Full props for the drawer's task-detail tab body. */
@@ -59,12 +64,61 @@ function dotState(state: TaskRecord['state']): StateDotState {
  * @returns the detail panel filling the drawer's tab body.
  */
 export function TaskDetailAction(props: TaskDetailActionProps) {
-  const { taskId, t, useDetail, load } = props
+  const { taskId, t, useDetail, load, requestRewind, requestPatch, openInbox } = props
   const detail = useDetail(state => state)
-  const [hint, setHint] = useState<'patch' | 'rewind' | undefined>(undefined)
+  const [showRoots, setShowRoots] = useState(false)
+  const [selected, setSelected] = useState<readonly string[]>([])
+  const [pending, setPending] = useState(false)
+  const [preview, setPreview] = useState<(RewindPreview & { itemId: string }) | undefined>(undefined)
+  const [rewindError, setRewindError] = useState<string | undefined>(undefined)
+  const [showPatch, setShowPatch] = useState(false)
+  const [patchNote, setPatchNote] = useState('')
+  const [patchPending, setPatchPending] = useState(false)
+  const [patchError, setPatchError] = useState<string | undefined>(undefined)
   useEffect(() => {
     if (taskId !== undefined) load(taskId)
   }, [taskId, load])
+  useEffect(() => {
+    // Reset the pickers when the selection moves to another task.
+    setShowRoots(false)
+    setPreview(undefined)
+    setRewindError(undefined)
+    setShowPatch(false)
+    setPatchNote('')
+    setPatchError(undefined)
+  }, [taskId])
+  const requestRewindFlow = async () => {
+    if (taskId === undefined || selected.length === 0) return
+    setPending(true)
+    setRewindError(undefined)
+    try {
+      const result = await requestRewind(taskId, [...selected], 'workbench-ui', crypto.randomUUID())
+      setPreview(result)
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? 'unknown'
+      setRewindError(code)
+    } finally {
+      setPending(false)
+    }
+  }
+  const requestPatchFlow = async () => {
+    if (taskId === undefined) return
+    const target = detail.phaseRuns.find(run => run.activeSubmissionId !== undefined)
+    if (target === undefined || patchNote.trim().length === 0) return
+    setPatchPending(true)
+    setPatchError(undefined)
+    try {
+      await requestPatch(taskId, String(target.phaseRunId), patchNote.trim(), 'workbench-ui', crypto.randomUUID())
+      setPatchNote('')
+      setShowPatch(false)
+      load(taskId)
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? 'unknown'
+      setPatchError(code)
+    } finally {
+      setPatchPending(false)
+    }
+  }
   return (
     <div className={css.panel}>
       {taskId === undefined && <p className={css.statusLine}>{t('empty')}</p>}
@@ -126,11 +180,78 @@ export function TaskDetailAction(props: TaskDetailActionProps) {
             )
           })}
           <div className={css.verbRow}>
-            <Button size="sm" variant="outline" onClick={() => { setHint('patch') }}>{t('verb.patch')}</Button>
-            <Button size="sm" variant="primary" onClick={() => { setHint('rewind') }}>{t('verb.rewind')}</Button>
+            <Button size="sm" variant="outline" onClick={() => { setShowPatch(show => !show) }}>{t('verb.patch')}</Button>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={pending}
+              onClick={() => { setShowRoots(show => !show); setPreview(undefined); setRewindError(undefined) }}
+            >
+              {t('verb.rewind')}
+            </Button>
           </div>
-          {hint !== undefined && (
-            <p className={css.hintLine} role="status">{t(hint === 'patch' ? 'hint.patch' : 'hint.rewind')}</p>
+          {showPatch && (
+            <div className={css.patchPanel}>
+              <p className={css.section}>{t('patch.title')}</p>
+              <textarea
+                className={css.patchNote}
+                value={patchNote}
+                onChange={(event) => { setPatchNote(event.target.value) }}
+                placeholder={t('patch.placeholder')}
+                rows={3}
+              />
+              <div className={css.patchActions}>
+                <Button size="sm" variant="primary" disabled={patchPending || patchNote.trim().length === 0} onClick={() => { void requestPatchFlow() }}>
+                  {patchPending ? t('patch.pending') : t('patch.submit')}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setShowPatch(false) }}>{t('patch.cancel')}</Button>
+              </div>
+              {patchError !== undefined && <p className={css.errorLine} role="alert">{t('patch.error', { code: patchError })}</p>}
+            </div>
+          )}
+          {showRoots && preview === undefined && (
+            <div className={css.rewindPanel}>
+              <p className={css.section}>{t('rewind.title')}</p>
+              {detail.rootVersions.length === 0 && <p className={css.statusLine}>{t('rewind.rootsEmpty')}</p>}
+              {detail.rootVersions.length > 0 && (
+                <div className={css.rootList}>
+                  <p className={css.rootsHint}>{t('rewind.rootsHint')}</p>
+                  {detail.rootVersions.map((root) => {
+                    const rootKey = String(root.versionId)
+                    const checked = selected.includes(rootKey)
+                    const toggle = () => {
+                      setSelected(prev => checked ? prev.filter(id => id !== rootKey) : [...prev, rootKey])
+                    }
+                    return (
+                      <label key={rootKey} className={css.rootRow}>
+                        <input type="checkbox" checked={checked} onChange={toggle} />
+                        <span className={css.itemId}>{root.deliverableId}</span>
+                        <span className={css.meta}>{root.phaseId} · {root.versionId}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+              {rewindError !== undefined && (
+                <p className={css.errorLine} role="alert">{t('rewind.error', { code: rewindError })}</p>
+              )}
+              <Button size="sm" variant="primary" disabled={selected.length === 0 || pending} onClick={() => { void requestRewindFlow() }}>
+                {pending ? t('loading') : t('rewind.confirm')}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setShowRoots(false) }}>{t('rewind.cancel')}</Button>
+            </div>
+          )}
+          {preview !== undefined && (
+            <div className={css.rewindPanel}>
+              <p className={css.section}>{t('rewind.previewTitle')}</p>
+              <ul className={css.list}>
+                <li className={css.row}><span className={css.itemId}>{t('rewind.previewVersions', { count: preview.invalidatedVersionIds.length })}</span></li>
+                <li className={css.row}><span className={css.itemId}>{t('rewind.previewPhases', { count: preview.rerunPhaseIds.length })}</span></li>
+                <li className={css.row}><span className={css.itemId}>{t('rewind.previewClarifications', { count: preview.reusableClarificationIds.length })}</span></li>
+              </ul>
+              <p className={css.successLine} role="status">{t('rewind.success')}</p>
+              <Button size="sm" variant="primary" onClick={openInbox}>{t('rewind.goInbox')}</Button>
+            </div>
           )}
         </div>
       )}

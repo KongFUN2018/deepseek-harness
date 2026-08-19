@@ -236,6 +236,40 @@ describe('submission acceptance', () => {
         problems: [expect.stringContaining('reused with a different payload')],
       })
   })
+
+  it('patches an accepted submission as a superseding revision with the note', async () => {
+    const provider = await harness()
+    const created = await provider.createTask(EMPTY_TEMPLATE_RECIPE_ID, 'w-1', 'actor', 'create-k')
+    await provider.startTask(created.taskId, mutation({ expectedRevision: 1 }))
+    const run = await provider.createTaskRun(created.taskId, mutation({ expectedRevision: 2 }))
+    const phaseRun = await provider.createPhaseRun(run.runId, 'main', mutation())
+    await provider.startPhaseRun(phaseRun.phaseRunId, mutation())
+    const env = { submittedBy: 'driver', sourceSeqPersisted: true, inputsCurrent: true, outputsValid: true }
+    const stored = await provider.recordSubmission(submission(created, run, phaseRun), env)
+    // Re-open the phase at a gate: the accepted submission moves to gate, then
+    // parks at a decision so a patch can return it to running and re-submit.
+    await provider.startGate(stored.submissionId, mutation({ expectedRevision: 3 }))
+    await provider.markPhaseAwaitingDecision(phaseRun.phaseRunId, mutation({ expectedRevision: 4 }))
+    const patched = await provider.requestPatch(created.taskId, phaseRun.phaseRunId, '补正交付物字段', mutation({ expectedRevision: 5 }))
+    expect(patched.submissionId).not.toBe(stored.submissionId)
+    expect(patched.supersedesSubmissionId).toBe(stored.submissionId)
+    expect(patched.attempt).toBe(2)
+    expect(patched.unresolvedIssues).toContain('补正交付物字段')
+    const phase = await provider.getPhaseRun(phaseRun.phaseRunId)
+    expect(phase.activeSubmissionId).toBe(patched.submissionId)
+  })
+
+  it('rejects a patch with no active submission or a blank note', async () => {
+    const provider = await harness()
+    const created = await provider.createTask(EMPTY_TEMPLATE_RECIPE_ID, 'w-1', 'actor', 'create-k')
+    await expect(provider.requestPatch(created.taskId, 'ghost-run', 'x', mutation())).rejects.toMatchObject({ code: 'not-found' })
+    await provider.startTask(created.taskId, mutation({ expectedRevision: 1 }))
+    const run = await provider.createTaskRun(created.taskId, mutation({ expectedRevision: 2 }))
+    const phaseRun = await provider.createPhaseRun(run.runId, 'main', mutation())
+    await provider.startPhaseRun(phaseRun.phaseRunId, mutation())
+    await provider.recordSubmission(submission(created, run, phaseRun), { submittedBy: 'driver', sourceSeqPersisted: true, inputsCurrent: true, outputsValid: true })
+    await expect(provider.requestPatch(created.taskId, phaseRun.phaseRunId, '   ', mutation())).rejects.toMatchObject({ code: 'submission-rejected' })
+  })
 })
 
 describe('task queries', () => {
