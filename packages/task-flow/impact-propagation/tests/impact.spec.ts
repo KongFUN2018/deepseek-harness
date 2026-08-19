@@ -9,6 +9,7 @@ import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
 import DeliverableService, { DeliverableId } from '@deepseek-ai/dsh-deliverable-local'
 import { SubmissionId } from '@deepseek-ai/dsh-task'
 import type { PhaseSubmission, TaskMutationContext } from '@deepseek-ai/dsh-task/types'
+import SessionStore from '@deepseek-ai/dsh-session'
 import LocalTaskService from '@deepseek-ai/dsh-task-local'
 import ImpactPropagationService from '../src/index.ts'
 import type { ImpactSnapshot } from '@deepseek-ai/dsh-deliverable-local/types'
@@ -25,6 +26,7 @@ async function harness() {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService)
   await ctx.plugin(ImpactPropagationService).await()
   return { ctx, tasks: ctx.tasks, deliverables: ctx.deliverables, impact: ctx.impactPropagation, journal: ctx.workbenchJournal }

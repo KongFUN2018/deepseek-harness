@@ -8,6 +8,7 @@ import RecipeRegistry, { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recip
 import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
 import DeliverableService, { DeliverableId } from '@deepseek-ai/dsh-deliverable-local'
 import type { TaskMutationContext } from '@deepseek-ai/dsh-task/types'
+import SessionStore from '@deepseek-ai/dsh-session'
 import LocalTaskService from '@deepseek-ai/dsh-task-local'
 import EditLockService from '../src/index.ts'
 import { MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
@@ -23,6 +24,7 @@ async function harness(sweepIntervalMs = 1000) {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService)
   await ctx.plugin(EditLockService, { sweepIntervalMs }).await()
   return { ctx, deliverables: ctx.deliverables, locks: ctx.editLock, tasks: ctx.tasks, journal: ctx.workbenchJournal }

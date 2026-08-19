@@ -7,6 +7,7 @@ import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
 import DeliverableService from '@deepseek-ai/dsh-deliverable-local'
+import SessionStore from '@deepseek-ai/dsh-session'
 import LocalTaskService from '@deepseek-ai/dsh-task-local'
 import EditLockService from '../src/index.ts'
 import { editLockDomainSpec } from '../src/spec.ts'
@@ -23,6 +24,7 @@ async function harness() {
   ctx.provide('storageDomain', facility)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService)
   await ctx.plugin(EditLockService, { sweepIntervalMs: 60_000 }).await()
   await ctx.plugin(InvariantRegistry)

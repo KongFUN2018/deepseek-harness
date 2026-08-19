@@ -8,6 +8,7 @@ import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import RecipeRegistry from '@deepseek-ai/dsh-recipe'
 import DeliverableService from '@deepseek-ai/dsh-deliverable-local'
 import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
+import SessionStore from '@deepseek-ai/dsh-session'
 import LocalTaskService from '../src/index.ts'
 import * as TaskLocalInvariant from '../src/invariant.ts'
 import {
@@ -26,6 +27,7 @@ async function harness(pool?: MemoryMediaPool) {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(InvariantRegistry)
   await ctx.plugin(TaskLocalInvariant)
   await ctx.plugin(LocalTaskService).await()

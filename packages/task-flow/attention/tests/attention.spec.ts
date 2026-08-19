@@ -7,6 +7,7 @@ import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import RecipeRegistry, { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recipe'
 import DeliverableService from '@deepseek-ai/dsh-deliverable-local'
 import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
+import SessionStore from '@deepseek-ai/dsh-session'
 import LocalTaskService from '@deepseek-ai/dsh-task-local'
 import { SubmissionId, TaskId, TaskRunId } from '@deepseek-ai/dsh-task'
 import type { PhaseRunId, PhaseSubmission, TaskMutationContext } from '@deepseek-ai/dsh-task/types'
@@ -29,6 +30,7 @@ async function harness(pool?: MemoryMediaPool) {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService)
   await ctx.plugin(AttentionService).await()
   return { ctx, attention: ctx.attention, tasks: ctx.tasks, journal: ctx.workbenchJournal }
@@ -45,6 +47,7 @@ async function rawHarness() {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService)
   const service = new AttentionService(ctx)
   return { ctx, service }

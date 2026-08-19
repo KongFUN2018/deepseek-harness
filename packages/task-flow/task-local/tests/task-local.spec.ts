@@ -7,6 +7,7 @@ import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import RecipeRegistry, { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recipe'
 import DeliverableService, { DeliverableId } from '@deepseek-ai/dsh-deliverable-local'
 import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
+import SessionStore from '@deepseek-ai/dsh-session'
 import type {
   GateCheckResult,
   PhaseSubmission,
@@ -31,6 +32,7 @@ async function harness(pool?: MemoryMediaPool) {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService).await()
   return { ctx, tasks: ctx.tasks, journal: ctx.workbenchJournal, deliverables: ctx.deliverables }
 }

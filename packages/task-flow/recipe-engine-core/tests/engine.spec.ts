@@ -11,7 +11,7 @@ import DeliverableService, { DeliverableId, DeliverableVersionId } from '@deepse
 import ImpactPropagationService from '@deepseek-ai/dsh-impact-propagation'
 import GoalService from '@deepseek-ai/dsh-goal'
 import RecipeRegistry, { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recipe'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId, SessionStore } from '@deepseek-ai/dsh-session'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import type { TaskMutationContext } from '@deepseek-ai/dsh-task/types'
@@ -37,6 +37,7 @@ async function harness(pool?: MemoryMediaPool) {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService).await()
   await ctx.plugin(ImpactPropagationService)
   await ctx.plugin(AgentRegistry)

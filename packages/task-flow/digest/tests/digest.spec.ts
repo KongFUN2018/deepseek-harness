@@ -7,6 +7,7 @@ import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import RecipeRegistry, { EMPTY_TEMPLATE_RECIPE_ID } from '@deepseek-ai/dsh-recipe'
 import WorkbenchJournalService from '@deepseek-ai/dsh-workbench-journal'
 import DeliverableService from '@deepseek-ai/dsh-deliverable-local'
+import SessionStore from '@deepseek-ai/dsh-session'
 import LocalTaskService from '@deepseek-ai/dsh-task-local'
 import '@deepseek-ai/dsh-task'
 import DigestService from '../src/index.ts'
@@ -142,6 +143,7 @@ async function harness() {
   await ctx.plugin(RecipeRegistry)
   await ctx.plugin(WorkbenchJournalService)
   await ctx.plugin(DeliverableService)
+  await ctx.plugin(SessionStore)
   await ctx.plugin(LocalTaskService)
   await ctx.plugin(DigestService).await()
   return { ctx, digest: ctx.digest, tasks: ctx.tasks }
