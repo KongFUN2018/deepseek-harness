@@ -47,6 +47,7 @@
     },
     { "path": "../../task-flow/digest" },
     { "path": "../../task-flow/metrics" },
+    { "path": "../../task-flow/rewind" },
     {
       "path": "../../feedback/message-feedback"
     },

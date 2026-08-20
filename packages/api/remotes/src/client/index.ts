@@ -10,6 +10,7 @@ import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
 import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
 import recipeRemote from '@deepseek-ai/dsh-recipe/remote'
+import rewindRemote from '@deepseek-ai/dsh-rewind/remote'
 import tasksRemote from '@deepseek-ai/dsh-task/remote'
 import workbenchRemote from '@deepseek-ai/dsh-workbench-host/remote'
 import workbenchHostStreamRemote from '@deepseek-ai/dsh-workbench-host-stream/remote'
@@ -25,6 +26,7 @@ export type {} from '@deepseek-ai/dsh-goal/remote'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
 export type {} from '@deepseek-ai/dsh-recipe/remote'
+export type {} from '@deepseek-ai/dsh-rewind/remote'
 export type {} from '@deepseek-ai/dsh-task/remote'
 export type {} from '@deepseek-ai/dsh-workbench-host/remote'
 export type {} from '@deepseek-ai/dsh-workbench-host-stream/remote'
@@ -40,6 +42,7 @@ export type {} from '@deepseek-ai/dsh-deliverable-local/types'
 export type {} from '@deepseek-ai/dsh-digest/types'
 export type {} from '@deepseek-ai/dsh-metrics/types'
 export type {} from '@deepseek-ai/dsh-credentials/types'
+export type {} from '@deepseek-ai/dsh-rewind/types'
 export type {} from '@deepseek-ai/dsh-llm/types'
 export type {} from '@deepseek-ai/dsh-agent-presets/types'
 export type {} from '@deepseek-ai/dsh-settings/types'
@@ -128,6 +131,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     for (const contribution of [
       commandsRemote, goalsRemote, dynamicRemote, pluginInventoryRemote, messageFeedbackRemote,
       recipeRemote,
+      rewindRemote,
       tasksRemote,
       deliverablesRemote,
       digestRemote,
