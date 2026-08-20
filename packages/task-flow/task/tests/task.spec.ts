@@ -256,7 +256,7 @@ describe('submission acceptance', () => {
     expect(patched.attempt).toBe(2)
     expect(patched.unresolvedIssues).toContain('补正交付物字段')
     const phase = await provider.getPhaseRun(phaseRun.phaseRunId)
-    expect(phase.activeSubmissionId).toBe(patched.submissionId)
+    expect(phase?.activeSubmissionId).toBe(patched.submissionId)
   })
 
   it('rejects a patch with no active submission or a blank note', async () => {
