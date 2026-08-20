@@ -2,8 +2,8 @@
 /**
  * The workbench-drawer plugin's halves. Presentation: the store-driven drawer
  * panel opens/closes through the shared store, tabs dispatch their seats
- * through the render share, a tab switch resets the width to the tab's
- * semantic width, the resize drag clamps within bounds, and the create tab
+ * through the render share, a tab switch returns to the conversation-relative
+ * default width, the resize drag clamps within bounds, and the create tab
  * selects the create seat. The sidebar.entry trigger toggles the same store.
  * Browser half on a real SlotRegistry with scripted Remotes: both entries
  * (sidebar.entry trigger + shell.overlay drawer) register with the four seat
@@ -20,7 +20,7 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
 import type { BadgeState } from '../src/client/badge.ts'
 import { BadgeController } from '../src/client/badge.ts'
-import { WorkbenchDrawer, type WorkbenchDrawerProps } from '../src/client/WorkbenchDrawer.tsx'
+import { WorkbenchDrawer, defaultWidthFor, type WorkbenchDrawerProps } from '../src/client/WorkbenchDrawer.tsx'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as applyNode } from '../src/index.ts'
 import * as DrawerInvariant from '../src/invariant.ts'
@@ -112,21 +112,28 @@ describe('WorkbenchDrawer (store-driven panel)', () => {
     expect(screen.getByRole('tab', { selected: true }).textContent).toContain(zh['tab.detail'])
   })
 
-  it('switching a tab returns to the semantic width and the drag clamps within bounds', () => {
+  it('defaults to the conversation-relative width and the drag clamps within bounds', () => {
     const store = createWorkbenchStore().create()
     act(() => { store.actions.openDrawer() })
     const { props } = makeProps(idle(), store)
     const { container } = render(<WorkbenchDrawer {...props} />)
+    const viewport = window.innerWidth
     const dialog = screen.getByRole('dialog')
-    expect(dialog.style.width).toBe('600px')
-    Object.defineProperty(dialog, 'offsetWidth', { value: 600, configurable: true })
+    // All tabs share one conversation-relative default for the current viewport.
+    expect(dialog.style.width).toBe(defaultWidthFor(viewport) + 'px')
     const resize = container.querySelector('[role="separator"]') as HTMLElement
     fireEvent.pointerDown(resize, { clientX: 500, pointerId: 1 })
-    fireEvent.pointerMove(resize, { clientX: 100, pointerId: 1 })
+    // A wide drag from the current default clamps at the viewport-share cap.
+    fireEvent.pointerMove(resize, { clientX: -500, pointerId: 1 })
     fireEvent.pointerUp(resize, { pointerId: 1 })
-    expect(dialog.style.width).toBe('960px')
+    // The clamp mirrors the component: drag from the current default, then
+    // clamped to min(WIDTH_MAX, viewport * VIEWPORT_SHARE).
+    const moved = defaultWidthFor(viewport) + (500 - -500)
+    const clamped = Math.max(360, Math.min(Math.min(1320, viewport * 0.94), moved))
+    expect(dialog.style.width).toBe(String(clamped) + 'px')
+    // Switching any tab returns to the conversation-relative default.
     fireEvent.click(screen.getByRole('tab', { name: new RegExp(zh['tab.inbox']) }))
-    expect(dialog.style.width).toBe('720px')
+    expect(dialog.style.width).toBe(defaultWidthFor(viewport) + 'px')
   })
 })
 

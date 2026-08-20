@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
@@ -11,23 +11,31 @@ import type { DrawerTasksOwnerProps } from './slots.ts'
 import type { createWorkbenchStore, DrawerTab } from './store.ts'
 import css from './WorkbenchDrawer.module.css'
 
-/** Semantic drawer width per tab (px); user drag overrides within bounds. */
-const TAB_WIDTH: Record<DrawerTab, number> = {
-  tasks: 600,
-  inbox: 720,
-  detail: 800,
-  create: 640,
-  taskList: 600,
-  recipeLibrary: 640,
-  clarifications: 620,
-}
+/** Conversation-relative drawer width: ~92% of the shell's center column. */
+const CONVERSATION_WIDTH_RATIO = 0.92
+
+/** Shell default geometry the center column derives from (sidebar | details). */
+const CENTER_OFFSET_X = 280 + 360
 
 /** Lower and upper width bounds for the user-resized drawer (px). */
-const WIDTH_MIN = 480
-const WIDTH_MAX = 960
+const WIDTH_MIN = 360
+const WIDTH_MAX = 1320
 
 /** Viewport share the width may never exceed, matching the CSS clamp. */
 const VIEWPORT_SHARE = 0.94
+
+/**
+ * Conversation-relative drawer width for the current viewport: the shell's
+ * center column (viewport minus the default sidebar/details offset) scaled
+ * by CONVERSATION_WIDTH_RATIO, capped to the draggable maximum. All tabs
+ * share one default; a user drag overrides it within WIDTH_MIN..WIDTH_MAX.
+ * @param viewport - current window.innerWidth.
+ * @returns the default drawer width in px, capped to both bounds.
+ */
+export function defaultWidthFor(viewport: number): number {
+  const center = Math.max(0, viewport - CENTER_OFFSET_X)
+  return Math.round(Math.min(center * CONVERSATION_WIDTH_RATIO, WIDTH_MAX))
+}
 
 /**
  * Registrant-private injected share (assembled in apply): the badge
@@ -58,6 +66,9 @@ export type WorkbenchDrawerProps =
 export function WorkbenchDrawer(props: WorkbenchDrawerProps) {
   const {  t, renderSlot, useStore, actions } = props
   const [userWidth, setUserWidth] = useState<number | undefined>(undefined)
+  // Track the live viewport so the conversation-relative default tracks window
+  // resizes; a user drag still overrides it until the next tab switch.
+  const [viewport, setViewport] = useState<number>(() => (typeof window === 'undefined' ? 0 : window.innerWidth))
   const drawerRef = useRef<HTMLDivElement>(null)
   const resizeRef = useRef<HTMLDivElement>(null)
   const dragStart = useRef<{ x: number; w: number } | null>(null)
@@ -72,8 +83,18 @@ export function WorkbenchDrawer(props: WorkbenchDrawerProps) {
     setUserWidth(undefined)
   }
 
-  const width = userWidth ?? TAB_WIDTH[tab]
-  const currentWidth = drawerRef.current?.offsetWidth ?? TAB_WIDTH[tab]
+  // A user drag pins a fixed width; otherwise each tab shares the
+  // conversation-relative default for the current viewport.
+  const defaultWidth = defaultWidthFor(viewport)
+  const width = userWidth ?? defaultWidth
+  const currentWidth = drawerRef.current?.offsetWidth ?? defaultWidth
+
+  // Re-derive the conversation-relative default whenever the window resizes.
+  useEffect(() => {
+    const onResize = () => { setViewport(window.innerWidth) }
+    window.addEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize) }
+  }, [])
 
   const onResizeDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault()

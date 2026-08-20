@@ -29,6 +29,9 @@
     "packages/task-flow/client-ui-task-board/src/css-modules.d.ts",
     "packages/task-flow/client-ui-attention-inbox/src/css-modules.d.ts",
     "packages/task-flow/client-ui-task-detail/src/css-modules.d.ts",
+    "packages/task-flow/client-ui-recipe-library/src/css-modules.d.ts",
+    "packages/task-flow/client-ui-clarifications/src/css-modules.d.ts",
+    "packages/task-flow/client-ui-task-list/src/css-modules.d.ts",
     "packages/client/tsdown.client.ts",
     "scripts/client-bundle-css.spec.ts",
     "scripts/client-bundle-purity.spec.ts"
@@ -101,6 +104,9 @@
     { "path": "./packages/task-flow/client-ui-task-create-confirm" },
     { "path": "./packages/task-flow/client-ui-attention-inbox" },
     { "path": "./packages/task-flow/client-ui-task-detail" },
+    { "path": "./packages/task-flow/client-ui-recipe-library" },
+    { "path": "./packages/task-flow/client-ui-clarifications" },
+    { "path": "./packages/task-flow/client-ui-task-list" },
     { "path": "./packages/client/locale" },
     { "path": "./packages/client/web" },
     { "path": "./apps/web" }

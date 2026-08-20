@@ -27,6 +27,7 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
   let regionOwner: SidebarSectionOwnerProps | undefined
   let settingsOwner: SidebarSettingsOwnerProps | undefined
   let footerActionOwner: SidebarFooterActionOwnerProps | undefined
+  let entryOwner: SidebarSectionOwnerProps | undefined
   let current = { collapsed, width }
   const root = () => (
     <SidebarRoot
@@ -44,6 +45,10 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
         if (key === 'sidebar.footer.action') {
           footerActionOwner = owner
           return <div data-testid="footer-action-seat" data-wide={owner.wide} />
+        }
+        if (key === 'sidebar.entry') {
+          entryOwner = owner as SidebarSectionOwnerProps
+          return <div data-testid="entry-seat" data-wide={owner.wide} />
         }
         regionOwner = owner as SidebarSectionOwnerProps
         return <div data-testid="region" data-wide={owner.wide} />
@@ -66,6 +71,10 @@ function mountShell({ collapsed = false, width = 300 }: { collapsed?: boolean; w
       if (footerActionOwner === undefined) throw new Error('footer action owner not rendered')
       return footerActionOwner
     },
+    entryOwner: () => {
+      if (entryOwner === undefined) throw new Error('entry owner not rendered')
+      return entryOwner
+    },
     rerender(next: Partial<typeof current>) {
       current = { ...current, ...next }
       view.rerender(root())
@@ -83,6 +92,15 @@ describe('SidebarRoot shell', () => {
     expect(b.startSession).toHaveBeenCalledTimes(2)
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
     expect(b.toggleSidebar).toHaveBeenCalledOnce()
+  })
+
+  it('renders the sidebar.entry hole beside the region with the same wide flag', () => {
+    const b = mountShell()
+    // The entry hole is a same-level peer rendered above the workspace region.
+    expect(b.entryOwner().wide).toBe(true)
+    expect(screen.getByTestId('entry-seat')).toBeTruthy()
+    b.regionOwner().expandSidebar()
+    expect(b.toggleSidebar).not.toHaveBeenCalled() // expanded already
   })
 
   it('hands the region its wide flag and clamps expandSidebar to the collapsed state', () => {

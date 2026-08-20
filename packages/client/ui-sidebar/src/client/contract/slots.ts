@@ -33,6 +33,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * package's 'sidebar' entry; each action receives only the column state.
      */
     'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: SidebarFooterActionOwnerProps }
+    /**
+     * Primary action entries pinned below New Session and above the browsing
+     * region, as a same-level peer of the workspaces browsing area. Each entry
+     * is a button/row in the column; the shell hands it the same fold-state
+     * share as the browser region (wide renders the full row, collapse folds
+     * it into the 56px rail beside the New Session rail icon).
+     */
+    'sidebar.entry': { kind: 'list'; scope: 'root'; owner: SidebarSectionOwnerProps }
   }
 }
 
@@ -85,5 +93,5 @@ export type SidebarRootInjected = {
  */
 export type SidebarRootComponentProps =
   PropsRuntime<'sidebar'>
-  & PropsRenderSlots<'sidebar.workspaces' | 'sidebar.settings' | 'sidebar.footer.action'>
+  & PropsRenderSlots<'sidebar.workspaces' | 'sidebar.settings' | 'sidebar.footer.action' | 'sidebar.entry'>
   & SidebarRootInjected & PropsLocale<'sidebar'>

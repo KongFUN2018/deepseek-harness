@@ -16,7 +16,7 @@ import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workbench-drawer/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import { TaskBoardController, type TaskBoardVerb } from './board.ts'
+import { TaskBoardController } from './board.ts'
 import { TaskBoardAction } from './TaskBoardAction.tsx'
 import { en, NS, zh, type TaskBoardKey } from './locales.ts'
 
@@ -43,7 +43,6 @@ export function apply(ctx: ClientContext): void {
     inject: () => ({
       hooks: { board: board.store },
       refresh: () => board.refresh(),
-      command: (taskId: string, verb: TaskBoardVerb) => { void board.command(taskId, verb) },
     }),
   }, TaskBoardAction))
 }
